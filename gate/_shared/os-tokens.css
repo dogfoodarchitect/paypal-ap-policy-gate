@@ -1,0 +1,37 @@
+@import url("./fonts/fonts.css");
+
+/* Daylight Swiss OS Tokens (Judge Standalone Export Subset — Pure Daylight Paper) */
+:root {
+  --os-ground: #f4f4f2;
+  --os-ground-void: #ffffff;
+  --os-ground-absorptive: #f7f7f9;
+  --os-paper: #f4f4f2;
+  --os-surface-paper: #f4f4f2;
+  --os-surface-card: #ffffff;
+  --os-surface-subtle: #eef0f4;
+  --os-ink: #0a0a0f;
+  --os-ink-primary: #0a0a0f;
+  --os-ink-secondary: #1e293b;
+  --os-ink-muted: #475569;
+  --os-muted: #5b6270;
+  --os-rule: #e8e8ed;
+  --os-border: #cbd5e1;
+  --os-border-strong: #94a3b8;
+  --os-blue: #1d4aff;
+  --os-green: #0d7a3e;
+  --os-accent: #1d4aff;
+  --os-accent-ink: #1034a6;
+  --os-status-ok: #0d7a3e;
+  --os-status-ok-bg: #e6f4ec;
+  --os-status-err: #991b1b;
+  --os-status-err-bg: rgba(153, 27, 27, 0.08);
+  --os-radius-sm: 8px;
+  --os-radius-md: 12px;
+  --os-radius-lg: 20px;
+  --os-font-body: "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
+  --os-font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", "Segoe UI", sans-serif;
+  --os-font-mono: "SF Mono", "Menlo", ui-monospace, monospace;
+  --os-focus-motion-duration: 160ms;
+  --os-focus-motion-easing: cubic-bezier(0.22, 1, 0.36, 1);
+  --os-ease-focus: var(--os-focus-motion-easing);
+}

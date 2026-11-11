@@ -1,0 +1,99 @@
+{
+  "bundle": "paypal-judge-export",
+  "schema": "kpf-code-manifest/1",
+  "stage": "Stage 1 — Frozen Executable Code, 25-Invoice Attack Corpus, Browser WebCrypto Verifier, Tests, Shared Tokens, Vendor Transport, and Licenses",
+  "generatedBy": "paypal-video-b1",
+  "generatedAtUTC": "2026-11-11T09:12:56.262Z",
+  "note": "Pinned prior to Stage 2 live PayPal Sandbox + glm-5.3 execution so recorded-live-sandbox-receipt.json and attack-suite-after-fix-receipt.json seal codeManifestSha256 inside GENESIS (#0) with zero SHA-256 cycle.",
+  "fileCount": 22,
+  "files": {
+    "_shared/controls/schema.mjs": {
+      "bytes": 6123,
+      "sha256": "2061aad974a1a97826ad08d0f5c25b07cfb76d280e05852daf65e0b9927c61c8"
+    },
+    "_shared/fonts/fonts.css": {
+      "bytes": 71,
+      "sha256": "df1d2fb24b72fa2c717a101f037488a8063b52c231a04036a4c8794efaed3690"
+    },
+    "_shared/os-tokens.css": {
+      "bytes": 1263,
+      "sha256": "e6a8171672efdac0fdc374d2e3d69d4cdba4fed1e05d1576c3d2e9fcc2110016"
+    },
+    "ai-procurement-agent.mjs": {
+      "bytes": 18248,
+      "sha256": "0bc129fa8744f8ea139c2f09afd96ad424a59188c6eaebd070882d13d7abdfef"
+    },
+    "attack-suite.json": {
+      "bytes": 61494,
+      "sha256": "09bb1214cd137dba425c102dc16bf90c61068938f09d4e35f00a208965fcbf92"
+    },
+    "demo-cli.mjs": {
+      "bytes": 10824,
+      "sha256": "87efcbb472c30bb0f39a4bd0682b3dac96f8b1cbdf2d0076e1d8cc04bbf9c570"
+    },
+    "hosted-demo-server.mjs": {
+      "bytes": 121925,
+      "sha256": "5568286fe605806cef6951acebd0632cd98bbf5d4ca8d6a74c57dbe8217c565e"
+    },
+    "hosted-demo-server.test.mjs": {
+      "bytes": 49363,
+      "sha256": "40dfd36cb170e32a8d0a02008e69787fb9ac915c0f48af9d43817cd3689b46c5"
+    },
+    "LICENSE": {
+      "bytes": 1281,
+      "sha256": "4a0acec71ea43b6ad53f23777a7cd0caad46fbe52fd52cb78bba03afeff3552a"
+    },
+    "live-sandbox-runner.mjs": {
+      "bytes": 45147,
+      "sha256": "5eb6e7bdcccb489ccd9366100ea3f58fd864be40d63ca1a65f4bf9efbb79e410"
+    },
+    "paypal-client.mjs": {
+      "bytes": 28718,
+      "sha256": "aa111ebfc9c4a0a30e610d1f81792af271ff6faf19d6cabd037da088601deaa4"
+    },
+    "paypal-receipted-agent.test.mjs": {
+      "bytes": 32528,
+      "sha256": "99b29a24d84a357f0d998f74f33bf83b3c18d14b90adafcacb3c9b363db560bd"
+    },
+    "policy-gate.mjs": {
+      "bytes": 28994,
+      "sha256": "9b1efa0be97097c45d5c8c3f5131448bdfd0252b41a41da9395d88176da12a80"
+    },
+    "receipt-explorer-and-observability.mjs": {
+      "bytes": 11073,
+      "sha256": "0736ad7bc7219129723f8fe7f25244c407ed7c82da9f2abcd7159db92758844f"
+    },
+    "receipt-explorer-and-observability.test.mjs": {
+      "bytes": 4715,
+      "sha256": "7aacf142978df4382c74272fd7c6be0b23e0690c0052c183efe38e575c5122ec"
+    },
+    "receipt-ledger.mjs": {
+      "bytes": 15609,
+      "sha256": "a7d488b05f6fb1f514108dcb8aa3f8864358d6f70bdb8ced2b1c70de1a0d583b"
+    },
+    "run-attack-suite.mjs": {
+      "bytes": 21579,
+      "sha256": "86543163adbc0657f6bb6ec90ec42ca130d996ccaa0c291ea7aba7618c7502f8"
+    },
+    "THIRD-PARTY-NOTICES.md": {
+      "bytes": 1274,
+      "sha256": "60bb2f48cb542235351d44eb15c8e5bffbe4efab64079587db9a693f28397cde"
+    },
+    "vendor/engines/payment-execution/client.mjs": {
+      "bytes": 9197,
+      "sha256": "2e96aeaffbcc9d76fa604092a2e5235c2ec1aedcdad1c292322c2c43185c450a"
+    },
+    "vendor/engines/payment-execution/transport.mjs": {
+      "bytes": 7802,
+      "sha256": "326ba8448808f4092555e1666dd70e2e0ff1bdfb3507bc72c4329d4d98c83035"
+    },
+    "verify-payments.mjs": {
+      "bytes": 42118,
+      "sha256": "9f21f57d8c80dbcf7b75c4801f903200728a303edfa80ee51ea58411df5e563c"
+    },
+    "verify.html": {
+      "bytes": 33613,
+      "sha256": "1a4e33c440c0c53d84f61e57d19f39e3dd88499b8cf142aaae17a712dc4c4a62"
+    }
+  }
+}

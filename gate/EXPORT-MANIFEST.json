@@ -1,0 +1,221 @@
+{
+  "bundle": "paypal-ap-policy-gate/gate",
+  "schema": "kpf-export-manifest/1",
+  "stage": "Public repository, folder gate/: live code generation po-v4; our 25 and the held-out 13 attack invoices; the recorded Run 1, Run 2, Run 3 and Run 4 receipts; the 5-invoice recorded receipt; the archived po-v4, hold-v3 and patched-v2 code manifests; the Run 4 known-38 wrapper and second-blind set; verify.html, the AP desk (desk.html, desk.mjs, desk-data.mjs and the script that builds the data), a page that forwards the old playground address to the desk, and the two recount scripts. README.md, LICENSE and media/ sit one level up and are not listed here.",
+  "generatedBy": "b10g-assembly",
+  "generatedAtUTC": "2026-11-11T20:53:46.000Z",
+  "codeManifestSha256": "890bcaf206e325e0959738129cfd57295063991dcbef089fb0839a3afbb76417",
+  "archivedCodeManifestSha256": {
+    "patched-v2": "803beaea2e7bdbf5fb90bd576f9b5a43766808355d1e8ed520887599a6032084",
+    "hold-v3": "22eace4f3652cb39266698638fe51766db8ffb7cc757049569ccbd61924130b2",
+    "po-v4": "a584de3d38143100bed9dc2a0363957cb91d7e026cf62d9a9817c168740d5336"
+  },
+  "recordedReceiptSha256": "b0223aefff3e7942f38f0c4f71ecad4395fd3dcf0bcfab71476690f9166421da",
+  "attackSuiteBeforeFixReceiptSha256": "f66219dc91f4b793f6b40079d149b2985fdc16442da3cb6c1ce85608b6c02acc",
+  "attackSuiteAfterFixReceiptSha256": "674dac071789763c4b80adeede077dc81a1e8bf8e1c9d4ef31e13f81b9c74c55",
+  "attackSuiteRun3ReceiptSha256": "a05eee04c5bae3e04ef270e19d16c5150a636ba0d6ef9b7354421c309112491e",
+  "attackSuiteRun4ReceiptSha256": "fa28cf7e7d5ef3df5f7609fa333fd43fc3b40f38ddc25b67866e0375fcdb9a01",
+  "fileCount": 50,
+  "files": {
+    "CODE-MANIFEST.json": {
+      "bytes": 5653,
+      "sha256": "890bcaf206e325e0959738129cfd57295063991dcbef089fb0839a3afbb76417"
+    },
+    "LICENSE": {
+      "bytes": 1281,
+      "sha256": "4a0acec71ea43b6ad53f23777a7cd0caad46fbe52fd52cb78bba03afeff3552a"
+    },
+    "RUN3-SUMMARY.md": {
+      "bytes": 9320,
+      "sha256": "60171418f3fa3aef9ed7f95f1913474cee710f81e7cef3574039a03a57f72354"
+    },
+    "RUN4-SUMMARY.md": {
+      "bytes": 6330,
+      "sha256": "6fc0cf84c7321cb8ab7c76aee7152a3e8fdfc676bbd002fc981087cd20388e38"
+    },
+    "THIRD-PARTY-NOTICES.md": {
+      "bytes": 1274,
+      "sha256": "60bb2f48cb542235351d44eb15c8e5bffbe4efab64079587db9a693f28397cde"
+    },
+    "_shared/controls/schema.mjs": {
+      "bytes": 6123,
+      "sha256": "2061aad974a1a97826ad08d0f5c25b07cfb76d280e05852daf65e0b9927c61c8"
+    },
+    "_shared/fonts/fonts.css": {
+      "bytes": 71,
+      "sha256": "df1d2fb24b72fa2c717a101f037488a8063b52c231a04036a4c8794efaed3690"
+    },
+    "_shared/os-tokens.css": {
+      "bytes": 1263,
+      "sha256": "e6a8171672efdac0fdc374d2e3d69d4cdba4fed1e05d1576c3d2e9fcc2110016"
+    },
+    "ai-procurement-agent.mjs": {
+      "bytes": 18710,
+      "sha256": "cc57b14a6cb3532b40500c0aeee76f24ff74e5a8c552e80b53a4873d8cf3219c"
+    },
+    "attack-suite-after-fix-receipt.json": {
+      "bytes": 236025,
+      "sha256": "674dac071789763c4b80adeede077dc81a1e8bf8e1c9d4ef31e13f81b9c74c55"
+    },
+    "attack-suite-before-fix-receipt.json": {
+      "bytes": 241402,
+      "sha256": "f66219dc91f4b793f6b40079d149b2985fdc16442da3cb6c1ce85608b6c02acc"
+    },
+    "attack-suite-heldout-b10-run4.json": {
+      "bytes": 51077,
+      "sha256": "b4893f8a5f13fe473f6590a3e156818fdacf6ba743966bd5d5788051b388b134"
+    },
+    "attack-suite-heldout-pov4.json": {
+      "bytes": 34503,
+      "sha256": "ced390e9906020d6021403af7f54003b1d1ba772f8fea0a90e32fb7d7423356c"
+    },
+    "attack-suite-heldout.json": {
+      "bytes": 32384,
+      "sha256": "32ee4941031a8a5c1bab3557dac7f0582da19c3ba94491eeb4e2c4d863f9fd5c"
+    },
+    "attack-suite-known-38-pov4.json": {
+      "bytes": 98279,
+      "sha256": "215618b8eb02ee530936100ade2dcb04f0bff1f30edb2ca114963223941c0785"
+    },
+    "attack-suite-pov4.json": {
+      "bytes": 65485,
+      "sha256": "73a5f75b54cce72b8f20b09e11ee416911331ac27d15a531791d94f7df81c2c8"
+    },
+    "attack-suite-run3-receipt.json": {
+      "bytes": 374203,
+      "sha256": "a05eee04c5bae3e04ef270e19d16c5150a636ba0d6ef9b7354421c309112491e"
+    },
+    "attack-suite-run4-receipt.json": {
+      "bytes": 613595,
+      "sha256": "fa28cf7e7d5ef3df5f7609fa333fd43fc3b40f38ddc25b67866e0375fcdb9a01"
+    },
+    "attack-suite.json": {
+      "bytes": 61494,
+      "sha256": "09bb1214cd137dba425c102dc16bf90c61068938f09d4e35f00a208965fcbf92"
+    },
+    "b10-policy-gate.test.mjs": {
+      "bytes": 12886,
+      "sha256": "8e41ce3da4ceab6faa225723f5e22cfac6a1e005290cc91d21e4eb34568c2446"
+    },
+    "b10-test-helpers.mjs": {
+      "bytes": 3467,
+      "sha256": "bfb4114991437bfcc7a1433dad6f9996f52d09c714634b11cdc0440489e93fe2"
+    },
+    "code-manifests/CODE-MANIFEST.hold-v3.json": {
+      "bytes": 4409,
+      "sha256": "22eace4f3652cb39266698638fe51766db8ffb7cc757049569ccbd61924130b2"
+    },
+    "code-manifests/CODE-MANIFEST.patched-v2.json": {
+      "bytes": 3775,
+      "sha256": "803beaea2e7bdbf5fb90bd576f9b5a43766808355d1e8ed520887599a6032084"
+    },
+    "code-manifests/CODE-MANIFEST.po-v4.json": {
+      "bytes": 5417,
+      "sha256": "a584de3d38143100bed9dc2a0363957cb91d7e026cf62d9a9817c168740d5336"
+    },
+    "demo-cli.mjs": {
+      "bytes": 10824,
+      "sha256": "87efcbb472c30bb0f39a4bd0682b3dac96f8b1cbdf2d0076e1d8cc04bbf9c570"
+    },
+    "desk-data.mjs": {
+      "bytes": 222758,
+      "sha256": "33601d7146c695bd531bf0bc40f379ca8510093d1f8ca4aa75104f63c3e256c4"
+    },
+    "desk.html": {
+      "bytes": 15322,
+      "sha256": "16e7cfa26e89985fe53bdf063baa5a8ecebf3287a5d076d35ab27770c436d1f8"
+    },
+    "desk.mjs": {
+      "bytes": 36228,
+      "sha256": "368af7729ffe4c355309a04c98ed6afc9ba4574e332bdf558766f9c967ca03f6"
+    },
+    "hosted-demo-server.mjs": {
+      "bytes": 138587,
+      "sha256": "c2de0f839508b537debe8a5b9f81916e16ee903d55925aca7a6d02398c26c03e"
+    },
+    "hosted-demo-server.test.mjs": {
+      "bytes": 54769,
+      "sha256": "5f504eb457b64b909178831b95ea550d383b946f62adbd53738af53eab46c2eb"
+    },
+    "live-sandbox-runner.mjs": {
+      "bytes": 45653,
+      "sha256": "c450049a19615195cd04ab0ee6321833fbd40ae32ef9031df99e9f785da5a7c2"
+    },
+    "make-desk-data.mjs": {
+      "bytes": 13875,
+      "sha256": "33d2836e99aaca9f184b0170006789489f100a91331850488c2af2863862dc18"
+    },
+    "make-playground-data.mjs": {
+      "bytes": 6695,
+      "sha256": "7621fd2eb4e3fa16285772ceeb24592f0522fb2325f55ec525bd52aa805a1236"
+    },
+    "paypal-client.mjs": {
+      "bytes": 28718,
+      "sha256": "aa111ebfc9c4a0a30e610d1f81792af271ff6faf19d6cabd037da088601deaa4"
+    },
+    "paypal-receipted-agent.test.mjs": {
+      "bytes": 33695,
+      "sha256": "62b3d508e45842dda233cb5c318675ccce51b216509686eaa4adee3c94725adf"
+    },
+    "playground.html": {
+      "bytes": 361,
+      "sha256": "89fe588559abe6780314d3b77052943f8edfe31eb5b4018e85d95100f3d8ccf3"
+    },
+    "policy-gate-hold-and-suite-verifier.test.mjs": {
+      "bytes": 32050,
+      "sha256": "a2cb6d6522224d9f7ad73ff7ecc0077e4050e99bf13fc9632a41084cd1c83c6c"
+    },
+    "policy-gate.mjs": {
+      "bytes": 58615,
+      "sha256": "66ef5c3755d97d48925f5eb9835d16d736c2e5777c87dbdbb700d287ed3f1f18"
+    },
+    "purchase-orders.mjs": {
+      "bytes": 11750,
+      "sha256": "7a45a357a4faef55a5ca597f2d1df7eff7c2bbd776d46ecc5778e6a4ac8b5b8d"
+    },
+    "receipt-explorer-and-observability.mjs": {
+      "bytes": 11073,
+      "sha256": "0736ad7bc7219129723f8fe7f25244c407ed7c82da9f2abcd7159db92758844f"
+    },
+    "receipt-explorer-and-observability.test.mjs": {
+      "bytes": 4745,
+      "sha256": "f7b8a22f48bb8ecc56e9b7ca9931176d94dc1ce924c2b488e7afbeeba17ec02c"
+    },
+    "receipt-ledger.mjs": {
+      "bytes": 17304,
+      "sha256": "e9ff6a5b79a86ef85bc7bc8c1479b68199ac8d2e9b42c506197479df97fc09c7"
+    },
+    "recorded-live-sandbox-receipt.json": {
+      "bytes": 53761,
+      "sha256": "b0223aefff3e7942f38f0c4f71ecad4395fd3dcf0bcfab71476690f9166421da"
+    },
+    "recount-run3.mjs": {
+      "bytes": 9694,
+      "sha256": "a5c4463d93e764cefe58552fc0695a3a0ba6b0aba414696bd86db91963b1a1ae"
+    },
+    "run-attack-suite.mjs": {
+      "bytes": 28357,
+      "sha256": "562a76f9b70b7e5ddf46003eba42a6774b41b320571f0bb7dff1e6fa4071f43f"
+    },
+    "vendor/engines/payment-execution/client.mjs": {
+      "bytes": 9197,
+      "sha256": "2e96aeaffbcc9d76fa604092a2e5235c2ec1aedcdad1c292322c2c43185c450a"
+    },
+    "vendor/engines/payment-execution/transport.mjs": {
+      "bytes": 7802,
+      "sha256": "326ba8448808f4092555e1666dd70e2e0ff1bdfb3507bc72c4329d4d98c83035"
+    },
+    "verify-payments.mjs": {
+      "bytes": 68724,
+      "sha256": "a1f1bb92bc9b57957034d71701aec42f6a87be685dd96e2620650d788ec626a1"
+    },
+    "verify.html": {
+      "bytes": 43883,
+      "sha256": "d180dc0070f6f9d79df2da4b935b964b077badf0f9c784817ab0aa3c6d4a2cc0"
+    },
+    "recount-run4.mjs": {
+      "bytes": 13882,
+      "sha256": "4d26e39cb011c4a8e6deb5baca8531b329aacdf1667a8974518262ea4e60bad1"
+    }
+  }
+}

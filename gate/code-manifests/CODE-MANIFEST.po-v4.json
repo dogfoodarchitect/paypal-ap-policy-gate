@@ -1,0 +1,140 @@
+{
+  "bundle": "paypal-judge-export",
+  "schema": "kpf-code-manifest/1",
+  "stage": "1",
+  "generation": "po-v4",
+  "generatedBy": "grok-b10-builder",
+  "generatedAtUTC": "2026-11-11T18:23:26.962Z",
+  "note": "Generation po-v4 (round B.10): purchase-order match, supplier daily split hold (HLD-07), approve-once, AP desk. Recorded Run 3 receipts stay byte-identical and bind the archived hold-v3 manifest in code-manifests/. This manifest is the live code pin for a later approved Run 4; Run 4 itself is not in this folder. Wording and playground fixes after the 2026-11-11 crew read; recorded receipts stay byte-identical and still bind the archived hold-v3 manifest.",
+  "fileCount": 32,
+  "files": {
+    "LICENSE": {
+      "bytes": 1281,
+      "sha256": "4a0acec71ea43b6ad53f23777a7cd0caad46fbe52fd52cb78bba03afeff3552a"
+    },
+    "THIRD-PARTY-NOTICES.md": {
+      "bytes": 1274,
+      "sha256": "60bb2f48cb542235351d44eb15c8e5bffbe4efab64079587db9a693f28397cde"
+    },
+    "_shared/controls/schema.mjs": {
+      "bytes": 6123,
+      "sha256": "2061aad974a1a97826ad08d0f5c25b07cfb76d280e05852daf65e0b9927c61c8"
+    },
+    "_shared/fonts/fonts.css": {
+      "bytes": 71,
+      "sha256": "df1d2fb24b72fa2c717a101f037488a8063b52c231a04036a4c8794efaed3690"
+    },
+    "_shared/os-tokens.css": {
+      "bytes": 1263,
+      "sha256": "e6a8171672efdac0fdc374d2e3d69d4cdba4fed1e05d1576c3d2e9fcc2110016"
+    },
+    "ai-procurement-agent.mjs": {
+      "bytes": 18710,
+      "sha256": "cc57b14a6cb3532b40500c0aeee76f24ff74e5a8c552e80b53a4873d8cf3219c"
+    },
+    "attack-suite-heldout-pov4.json": {
+      "bytes": 34503,
+      "sha256": "ced390e9906020d6021403af7f54003b1d1ba772f8fea0a90e32fb7d7423356c"
+    },
+    "attack-suite-heldout.json": {
+      "bytes": 32384,
+      "sha256": "32ee4941031a8a5c1bab3557dac7f0582da19c3ba94491eeb4e2c4d863f9fd5c"
+    },
+    "attack-suite-pov4.json": {
+      "bytes": 65485,
+      "sha256": "73a5f75b54cce72b8f20b09e11ee416911331ac27d15a531791d94f7df81c2c8"
+    },
+    "attack-suite.json": {
+      "bytes": 61494,
+      "sha256": "09bb1214cd137dba425c102dc16bf90c61068938f09d4e35f00a208965fcbf92"
+    },
+    "b10-policy-gate.test.mjs": {
+      "bytes": 12886,
+      "sha256": "8e41ce3da4ceab6faa225723f5e22cfac6a1e005290cc91d21e4eb34568c2446"
+    },
+    "b10-test-helpers.mjs": {
+      "bytes": 3467,
+      "sha256": "bfb4114991437bfcc7a1433dad6f9996f52d09c714634b11cdc0440489e93fe2"
+    },
+    "code-manifests/CODE-MANIFEST.hold-v3.json": {
+      "bytes": 4409,
+      "sha256": "22eace4f3652cb39266698638fe51766db8ffb7cc757049569ccbd61924130b2"
+    },
+    "code-manifests/CODE-MANIFEST.patched-v2.json": {
+      "bytes": 3775,
+      "sha256": "803beaea2e7bdbf5fb90bd576f9b5a43766808355d1e8ed520887599a6032084"
+    },
+    "demo-cli.mjs": {
+      "bytes": 10824,
+      "sha256": "87efcbb472c30bb0f39a4bd0682b3dac96f8b1cbdf2d0076e1d8cc04bbf9c570"
+    },
+    "hosted-demo-server.mjs": {
+      "bytes": 138577,
+      "sha256": "a89a1a2dfaec17be81c237353655e34a0821e4944d10b4c67ffc007809878f3b"
+    },
+    "hosted-demo-server.test.mjs": {
+      "bytes": 54769,
+      "sha256": "59696789446487d56813ce58e7c3a4aec56a66bc422aeb187b1871bd17e8a2c6"
+    },
+    "live-sandbox-runner.mjs": {
+      "bytes": 45653,
+      "sha256": "c450049a19615195cd04ab0ee6321833fbd40ae32ef9031df99e9f785da5a7c2"
+    },
+    "make-playground-data.mjs": {
+      "bytes": 6695,
+      "sha256": "7621fd2eb4e3fa16285772ceeb24592f0522fb2325f55ec525bd52aa805a1236"
+    },
+    "paypal-client.mjs": {
+      "bytes": 28718,
+      "sha256": "aa111ebfc9c4a0a30e610d1f81792af271ff6faf19d6cabd037da088601deaa4"
+    },
+    "paypal-receipted-agent.test.mjs": {
+      "bytes": 33695,
+      "sha256": "62b3d508e45842dda233cb5c318675ccce51b216509686eaa4adee3c94725adf"
+    },
+    "policy-gate-hold-and-suite-verifier.test.mjs": {
+      "bytes": 28827,
+      "sha256": "9745eecb4ebf6b0d8571a80189089bb7e15e686b3e7caaa093754ba870795af9"
+    },
+    "policy-gate.mjs": {
+      "bytes": 58615,
+      "sha256": "66ef5c3755d97d48925f5eb9835d16d736c2e5777c87dbdbb700d287ed3f1f18"
+    },
+    "purchase-orders.mjs": {
+      "bytes": 11750,
+      "sha256": "7a45a357a4faef55a5ca597f2d1df7eff7c2bbd776d46ecc5778e6a4ac8b5b8d"
+    },
+    "receipt-explorer-and-observability.mjs": {
+      "bytes": 11073,
+      "sha256": "0736ad7bc7219129723f8fe7f25244c407ed7c82da9f2abcd7159db92758844f"
+    },
+    "receipt-explorer-and-observability.test.mjs": {
+      "bytes": 4745,
+      "sha256": "f7b8a22f48bb8ecc56e9b7ca9931176d94dc1ce924c2b488e7afbeeba17ec02c"
+    },
+    "receipt-ledger.mjs": {
+      "bytes": 17304,
+      "sha256": "e9ff6a5b79a86ef85bc7bc8c1479b68199ac8d2e9b42c506197479df97fc09c7"
+    },
+    "run-attack-suite.mjs": {
+      "bytes": 28357,
+      "sha256": "562a76f9b70b7e5ddf46003eba42a6774b41b320571f0bb7dff1e6fa4071f43f"
+    },
+    "vendor/engines/payment-execution/client.mjs": {
+      "bytes": 9197,
+      "sha256": "2e96aeaffbcc9d76fa604092a2e5235c2ec1aedcdad1c292322c2c43185c450a"
+    },
+    "vendor/engines/payment-execution/transport.mjs": {
+      "bytes": 7802,
+      "sha256": "326ba8448808f4092555e1666dd70e2e0ff1bdfb3507bc72c4329d4d98c83035"
+    },
+    "verify-payments.mjs": {
+      "bytes": 67469,
+      "sha256": "329b3ff8826e36937a4da3a13eb51ccf9ebfeca62bb53acd2217fccbb26045db"
+    },
+    "verify.html": {
+      "bytes": 43883,
+      "sha256": "d180dc0070f6f9d79df2da4b935b964b077badf0f9c784817ab0aa3c6d4a2cc0"
+    }
+  }
+}
