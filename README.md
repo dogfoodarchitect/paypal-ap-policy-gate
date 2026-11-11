@@ -240,7 +240,7 @@ That case is payment redirection: the money went to an account the attacker chos
 
 ## Licence
 
-MIT. `Copyright (c) 2026 Brennan William DeCrow` (`LICENSE`; the same file is in `gate/`). Third-party notices: `gate/THIRD-PARTY-NOTICES.md`. All imports resolve to local files inside `gate/`.
+MIT. `Copyright (c) 2026 Brennan William DeCrow` (`LICENSE`, the plain MIT text). `gate/LICENSE` is the same grant with a closing note on third-party files; that note names a `.txt` file, and in this repository the notices are in `gate/THIRD-PARTY-NOTICES.md`. All imports resolve to local files inside `gate/`.
 
 ## Pins and hashes
 
