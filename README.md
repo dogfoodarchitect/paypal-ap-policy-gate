@@ -2,7 +2,7 @@
 
 **An agent that cannot pay outside its policy, and proves every payment afterwards.**
 
-[AP desk](https://dogfoodarchitect.github.io/paypal-ap-policy-gate/gate/desk.html) · [Verify the receipts](https://dogfoodarchitect.github.io/paypal-ap-policy-gate/gate/verify.html) · [Video](<YOUTUBE_URL>) · [Repo](https://github.com/dogfoodarchitect/paypal-ap-policy-gate)
+[AP desk](https://dogfoodarchitect.github.io/paypal-ap-policy-gate/gate/desk.html) · [Verify the receipts](https://dogfoodarchitect.github.io/paypal-ap-policy-gate/gate/verify.html) · [Video](https://youtu.be/0-FeJ44J0jw) · [Repo](https://github.com/dogfoodarchitect/paypal-ap-policy-gate)
 
 ![60 invoices, final run](media/hero-60-invoices.png)
 
