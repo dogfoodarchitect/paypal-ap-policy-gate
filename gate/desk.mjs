@@ -7,6 +7,7 @@
 import { PolicyGate, DEFAULT_AP_POLICY_GATE_CONFIG, replayPaidHistory, processAgentPaymentProposal } from './policy-gate.mjs';
 import { DEFAULT_PURCHASE_ORDERS } from './purchase-orders.mjs';
 import { DESK_DATA as DATA } from './desk-data.mjs';
+import { readInvoiceFields } from './invoice-reader.mjs';
 
 const $ = (id) => document.getElementById(id);
 const NS = 'http://www.w3.org/2000/svg';
@@ -1230,49 +1231,383 @@ function renderFoot5() {
   f.append(ul);
 }
 
+// ================================================================================================
+// Try your own invoice (hosted and local). No model here: a plain field reader stands in for it.
+// ================================================================================================
+const TRY = { ready: false, samples: null, gate: null, last: null };
+const TRY_FIELDS = ['payeeEmail', 'payeeMerchantId', 'amountValue', 'currencyCode', 'invoiceId', 'poNumber', 'reason'];
+const TRY_LABEL = { payeeEmail: 'Payee email', payeeMerchantId: 'Merchant id', amountValue: 'Amount', currencyCode: 'Currency', invoiceId: 'Invoice number', poNumber: 'Purchase order', reason: 'Reason' };
+
+// The proposal the page hands to the gate: what the reader found, the supplier id looked up in the supplier
+// register by email (never read from the text), and the purchase order number from its own field.
+function tryProposal(fields) {
+  const gate = new PolicyGate(DEFAULT_AP_POLICY_GATE_CONFIG);
+  const email = strOf(fields.payeeEmail).trim().toLowerCase();
+  const known = gate.listApprovedPayees().find((x) => String(x.email || '').trim().toLowerCase() === email);
+  return {
+    gate,
+    proposal: {
+      proposalId: 'try-1', invoiceId: strOf(fields.invoiceId), payeeId: known ? known.payeeId : null,
+      supplierName: strOf(fields.supplierName) || null, payeeEmail: strOf(fields.payeeEmail),
+      payeeMerchantId: strOf(fields.payeeMerchantId).trim() === '' ? null : strOf(fields.payeeMerchantId),
+      amountValue: strOf(fields.amountValue), currencyCode: strOf(fields.currencyCode) || 'USD',
+      reason: strOf(fields.reason), invoiceMemo: null, poNumber: strOf(fields.poNumber).trim() === '' ? null : strOf(fields.poNumber).trim(),
+    },
+  };
+}
+
+async function initTry() {
+  await loadRun5();
+  const base = R5.invoices[R5.invoices.length - 1];     // the last honest invoice of Run 5
+  const snap = POLICY;
+  const payees = new PolicyGate(DEFAULT_AP_POLICY_GATE_CONFIG).listApprovedPayees();
+  const other = payees.find((x) => x.merchantId && x.merchantId !== base.gateProposal.payeeMerchantId);
+  const capCents = Math.round(Number(snap.maxTransactionUsd) * 100) + 100;
+  // The over-the-cap sample needs a purchase order with room for more than the cap, so the cap is the rule that fires.
+  const gate0 = new PolicyGate(DEFAULT_AP_POLICY_GATE_CONFIG);
+  const wide = R5.invoices.find((i) => (gate0.getPoCard(i.gateProposal.poNumber)?.totalCents ?? 0) >= capCents) || base;
+  const text = base.invoiceText;
+  TRY.samples = [
+    { key: 'honest', label: 'Honest invoice', text, po: base.gateProposal.poNumber, say: 'An ordinary invoice from a registered supplier, with a purchase order.' },
+    { key: 'merchant', label: 'Swapped merchant id', text: text.replace(/Merchant ID:\s*[A-Z0-9-]+/, `Merchant ID: ${other ? other.merchantId : 'MCH-NOT-REGISTERED'}`), po: base.gateProposal.poNumber, say: 'The same invoice with the merchant id of a different supplier.' },
+    { key: 'cap', label: 'Over the cap', text: wide.invoiceText.replace(/AMOUNT DUE:\s*\$?[\d,]+(?:\.\d{1,2})?/, `AMOUNT DUE: $${(capCents / 100).toLocaleString('en-US', { minimumFractionDigits: 2 })}`), po: wide.gateProposal.poNumber, say: 'An invoice for more than the per-payment cap, on a purchase order with room for it.' },
+  ];
+}
+
+function readTry(text, po) {
+  const f = readInvoiceFields(text);
+  return { ...f, poNumber: po };
+}
+function setTryFields(f) {
+  for (const k of TRY_FIELDS) $('try-f-' + k).value = strOf(f[k]);
+}
+function runTry(edited) {
+  const out = $('try-out');
+  const fields = { supplierName: TRY.last?.supplierName ?? null };
+  for (const k of TRY_FIELDS) fields[k] = $('try-f-' + k).value;
+  let verdict = null; let err = null; let g = null; let proposal = null;
+  try {
+    ({ gate: g, proposal } = tryProposal(fields));
+    verdict = g.evaluate(proposal, { timestamp: R5.run.fixedEvaluationTimestamp });
+  } catch (e) { err = e; }
+  out.textContent = '';
+  out.hidden = false;
+  if (err || !verdict) {
+    out.dataset.decision = 'ERROR'; out.dataset.reason = 'GATE_ERROR';
+    out.append(h('p', 'answer', [h('span', 'lab', 'The gate answered with an error'), strOf(err?.message || err)]));
+    return;
+  }
+  const kind = KIND[verdict.decision] || 'refused';
+  out.dataset.decision = verdict.decision; out.dataset.reason = verdict.reasonCode; out.dataset.proposal = JSON.stringify(proposal);
+  out.append(h('div', `dec ${kind}`, [mark(kind), decWord(verdict.decision)]));
+  out.append(h('p', 'code', verdict.reasonCode));
+  out.append(h('p', 'rule', ruleSentence(verdict.reasonCode, POLICY)));
+  if (verdict.reasonDetail) out.append(h('p', 'note', `The gate said: ${verdict.reasonDetail}`));
+  out.append(h('p', 'zero', 'Computed in your browser by the real gate code. 0 PayPal calls. Nothing is paid and nothing is sent anywhere.'));
+  out.append(h('p', 'note', 'The gate here has no payment history: this is the first invoice of the day.'));
+  const po = poBlock({ gateProposal: { ...proposal, amountValue: proposal.amountValue }, setup: [], evalTimestamp: R5.run.fixedEvaluationTimestamp });
+  out.append(h('h3', null, 'Purchase order'), po);
+}
+function renderTry() {
+  const box = $('apptry');
+  box.textContent = '';
+  const p = h('section', 'panel play');
+  p.append(h('h2', null, [h('span', 'n', '1'), 'Try your own invoice']));
+  const warn = h('p', 'callout', 'This page has no AI model. A simple field reader stands in for it. The gate below is the real code. Nothing is sent anywhere and nothing is paid.');
+  warn.id = 'try-warning';
+  p.append(warn);
+  p.append(h('p', 'note', 'The reader finds fields in invoices that use the same layout as the samples (FROM, VENDOR, INVOICE NUMBER, LINE ITEM, AMOUNT DUE). It does not understand free text. Edit the invoice or the fields and run the gate again. The purchase order number comes from its own field, and the supplier id from the supplier register. The reader is never asked for either.'));
+  const btns = h('div', 'btns');
+  for (const sm of TRY.samples) {
+    const b = h('button', 'btn', sm.label); b.type = 'button'; b.id = 'try-sample-' + sm.key; b.title = sm.say;
+    b.addEventListener('click', () => { $('try-text').value = sm.text; $('try-po').value = sm.po; readAndRun(); });
+    btns.append(b);
+  }
+  p.append(h('h3', null, 'One-click samples'), btns);
+  const f1 = h('div', 'field wide');
+  const l1 = h('label', null, 'Invoice text'); l1.htmlFor = 'try-text';
+  const ta = h('textarea'); ta.id = 'try-text'; ta.spellcheck = false; ta.rows = 9; ta.value = TRY.samples[0].text;
+  f1.append(l1, ta);
+  const f2 = h('div', 'field');
+  const l2 = h('label', null, 'Purchase order number'); l2.htmlFor = 'try-po';
+  const po = h('input'); po.id = 'try-po'; po.type = 'text'; po.autocomplete = 'off'; po.spellcheck = false; po.value = TRY.samples[0].po;
+  f2.append(l2, po);
+  const form = h('div', 'fields'); form.append(f1, f2);
+  p.append(form);
+  const rb = h('div', 'btns');
+  const read = h('button', 'btn primary', 'Read the invoice and run the gate'); read.type = 'button'; read.id = 'try-read';
+  read.addEventListener('click', readAndRun);
+  rb.append(read);
+  p.append(rb);
+  p.append(h('h3', null, 'What the field reader found (edit any field)'));
+  const ff = h('div', 'fields');
+  for (const k of TRY_FIELDS) {
+    const field = h('div', 'field' + (k === 'reason' || k === 'payeeEmail' ? ' wide' : ''));
+    const lab = h('label', null, TRY_LABEL[k]); lab.htmlFor = 'try-f-' + k;
+    const inp = h('input'); inp.id = 'try-f-' + k; inp.type = 'text'; inp.spellcheck = false; inp.autocomplete = 'off';
+    field.append(lab, inp); ff.append(field);
+  }
+  p.append(ff);
+  const rg = h('div', 'btns');
+  const run = h('button', 'btn', 'Run the gate on these fields'); run.type = 'button'; run.id = 'try-run';
+  run.addEventListener('click', () => runTry(true));
+  rg.append(run);
+  p.append(rg);
+  const out = h('div', 'out'); out.id = 'try-out'; out.hidden = true; out.setAttribute('aria-live', 'polite');
+  p.append(out);
+  box.append(p);
+  readAndRun();
+}
+function readAndRun() {
+  const f = readTry($('try-text').value, $('try-po').value);
+  TRY.last = f;
+  setTryFields(f);
+  runTry(false);
+}
+
+// ================================================================================================
+// Live tab (only where desk-server.mjs serves this page). Everything shown comes from the server's answers.
+// ================================================================================================
+const LIVE = { on: false, view: null, error: '', check: null, busy: false };
+const liveAvailable = () => Boolean(document.querySelector('meta[name="desk-live"]'));
+async function liveCall(method, route, body) {
+  const headers = { 'content-type': 'application/json' };
+  const tk = $('lv-token')?.value || '';
+  if (method === 'POST') headers['x-approver-token'] = tk;
+  const res = await fetch(`/api/live/${route}`, { method, headers, body: method === 'POST' ? JSON.stringify(body || {}) : undefined });
+  const json = await res.json();
+  return { status: res.status, json };
+}
+async function liveRefresh() {
+  const { json } = await liveCall('GET', 'status');
+  LIVE.view = json;
+}
+async function liveAct(route, body, focusId) {
+  if (LIVE.busy) return;
+  LIVE.busy = true; LIVE.error = ''; renderLive();
+  try {
+    const { status, json } = await liveCall('POST', route, body);
+    if (json.view) LIVE.view = json.view;
+    if (!json.ok) LIVE.error = strOf(json.error);
+    else if (route === 'reset') LIVE.check = null;
+    if (status === 403) LIVE.error = strOf(json.error);
+  } catch (e) { LIVE.error = 'The local server did not answer: ' + strOf(e && e.message); }
+  LIVE.busy = false;
+  renderLive(focusId);
+}
+function liveIds(r, title) {
+  const box = h('div', 'recd');
+  box.dataset.live = 'ids';
+  box.append(h('span', 'lab', `${title}${r.simulated ? ', ' : ' '}${r.label}, ${fmtTime(r.at)}. Returned in that moment by the server.`));
+  const dl = h('dl', 'kv ids');
+  const add = (k, v) => dl.append(h('dt', null, k), h('dd', 'mono', v));
+  add(r.simulated ? 'Simulated order' : 'PayPal order', strOf(r.order?.id) || 'none');
+  add('Capture', strOf(r.capture?.id) || 'none');
+  add('Read back', r.readBack ? `order ${r.readBack.orderStatus}, capture ${r.readBack.captureStatus}` : 'none');
+  box.append(dl);
+  box.append(h('p', 'note', `${plural(r.calls.length, r.simulated ? 'simulated call' : 'PayPal call', r.simulated ? 'simulated calls' : 'PayPal calls')} for this payment${r.simulated ? '' : ', each with a Paypal-Debug-Id'}:`));
+  const ul = h('ul', 'calls');
+  for (const c of r.calls) ul.append(h('li', null, [`${strOf(c.debugId) || 'no debug id'} `, h('span', 's', `${c.method} ${c.path} ${c.status}`)]));
+  box.append(ul);
+  return box;
+}
+function liveResult(r, title) {
+  const wrap = h('div');
+  wrap.dataset.pass = r.passId; wrap.dataset.status = r.status; wrap.dataset.decision = r.decision; wrap.dataset.reason = r.reasonCode;
+  const kind = KIND[r.decision] || 'refused';
+  wrap.append(h('p', 'note', title));
+  wrap.append(h('div', `dec ${kind} sm`, [mark(kind), decWord(r.decision)]));
+  wrap.append(h('p', 'code', r.reasonCode));
+  wrap.append(h('p', 'rule', ruleSentence(r.reasonCode, POLICY)));
+  if (r.reasonDetail) wrap.append(h('p', 'note', `The gate said: ${r.reasonDetail}`));
+  if (r.status === 'EXECUTED') wrap.append(liveIds(r, 'Paid'));
+  else wrap.append(h('p', 'zero', `${r.apiCalls} ${r.simulated ? 'simulated' : 'PayPal'} calls. Nothing was paid.`));
+  return wrap;
+}
+function liveCard(inv) {
+  const card = h('div', 'hold');
+  card.dataset.invoice = inv.id;
+  card.dataset.state = inv.holdStatus || (inv.arrival.status === 'EXECUTED' ? 'paid' : 'none');
+  const chipText = inv.arrival.status === 'EXECUTED' ? 'Paid' : inv.holdStatus === 'held' ? 'Held' : inv.holdStatus === 'approved' ? (inv.release?.status === 'EXECUTED' ? 'Approved, paid' : 'Approved') : inv.holdStatus === 'rejected' ? 'Rejected' : 'Refused';
+  card.append(h('div', 'hhead', [mark(inv.arrival.status === 'EXECUTED' || inv.release?.status === 'EXECUTED' ? 'paid' : inv.holdStatus === 'rejected' || inv.arrival.status === 'REFUSED' ? 'refused' : 'held'), h('span', 'hid', inv.id), h('span', 'hsup', `${inv.supplierName || 'No supplier named'} · ${money(inv.amountValue)} ${strOf(inv.arrival.currencyCode)}`), h('span', 'chip', chipText)]));
+  if (inv.pasted) {
+    card.append(h('p', 'note small', `Pasted invoice. The model read these fields: ${['payeeEmail', 'payeeMerchantId', 'invoiceId', 'poNumber'].map((k) => `${k} ${strOf(inv.proposal?.[k]) || 'none'}`).join(', ')}.${inv.inSignedReceipt ? '' : ' Not in the signed session receipt (see the note under Download).'}`));
+  }
+  card.append(liveResult(inv.arrival, inv.pasted ? 'The proposal was read from the pasted text, then the gate decided:' : 'The invoice arrived and the gate decided:'));
+  for (const d of inv.decisions) {
+    const t = d.error ? d.error : d.status === 'DENIED' ? `DENIED: ${d.verdict.reasonCode}. ${d.verdict.reasonDetail || ''}` : d.idempotent ? `APPROVED. ${d.by} had already approved this payment. Nothing changes.` : d.action === 'approve' ? `APPROVED by ${d.by}, once. The release goes through the gate again.` : `${d.status} by ${d.by}. The payment will not be made.`;
+    const a = answerBox(`The gate answers, ${d.label}, ${fmtTime(d.at)}`, t, d.ok);
+    a.dataset.answer = d.action;
+    card.append(a);
+  }
+  if (inv.release) card.append(liveResult(inv.release, 'The release: the same proposal goes through the gate again under a new proposal id.'));
+  if (inv.again) card.append(liveResult(inv.again, 'The same payment sent again:'));
+  const btns = h('div', 'btns');
+  if (inv.holdStatus === 'held' || inv.holdStatus === 'approved' || inv.holdStatus === 'rejected') {
+    const b1 = h('button', 'btn primary', `Approve ${inv.id}`); b1.type = 'button'; b1.id = `lv-approve-${inv.id}`;
+    b1.setAttribute('aria-label', `Approve ${inv.id}, ${inv.supplierName}, ${money(inv.amountValue)}`);
+    b1.addEventListener('click', () => liveAct('approve', { target: inv.id, approver: $('lv-name').value }, b1.id));
+    const b2 = h('button', 'btn', `Reject ${inv.id}`); b2.type = 'button'; b2.id = `lv-reject-${inv.id}`;
+    b2.setAttribute('aria-label', `Reject ${inv.id}, ${inv.supplierName}, ${money(inv.amountValue)}`);
+    b2.addEventListener('click', () => liveAct('reject', { target: inv.id, approver: $('lv-name').value }, b2.id));
+    btns.append(b1, b2);
+  }
+  if (inv.release?.status === 'EXECUTED' && !inv.again) {
+    const b3 = h('button', 'btn', 'Send the same payment again'); b3.type = 'button'; b3.id = `lv-again-${inv.id}`;
+    b3.addEventListener('click', () => liveAct('again', { target: inv.id }, b3.id));
+    btns.append(b3);
+  }
+  if (btns.childNodes.length) card.append(btns);
+  return card;
+}
+function renderLive(focusId) {
+  const box = $('applive');
+  const keep = { token: $('lv-token')?.value ?? '', name: $('lv-name')?.value ?? 'Guest approver', text: $('lv-text')?.value, po: $('lv-po')?.value };
+  const v = LIVE.view;
+  box.textContent = '';
+  const p = h('section', 'panel play');
+  p.append(h('h2', null, [h('span', 'n', '1'), 'Live · your Sandbox']));
+  const ban = h('p', 'callout', v.live ? `Live on your PayPal Sandbox. Payments made here are real Sandbox payments. Session ${v.session.tag}, started ${fmtTime(v.session.startedAt)}.` : `Simulated, no PayPal call. Nothing leaves this machine. Session ${v.session.tag}, started ${fmtTime(v.session.startedAt)}.`);
+  ban.id = 'lv-banner'; ban.dataset.live = String(v.live);
+  p.append(ban);
+  p.append(h('p', 'note', `Proposals: ${v.proposals.source}. Every answer below comes from the server of this desk, not from a recording.`));
+  const row = h('div', 'fields');
+  const fa = h('div', 'field'); const la = h('label', null, 'Session token (printed in the terminal)'); la.htmlFor = 'lv-token';
+  const ta = h('input'); ta.id = 'lv-token'; ta.type = 'password'; ta.autocomplete = 'off'; ta.spellcheck = false; ta.value = keep.token; fa.append(la, ta);
+  const fb = h('div', 'field'); const lb = h('label', null, 'Approver name'); lb.htmlFor = 'lv-name';
+  const tb = h('input'); tb.id = 'lv-name'; tb.type = 'text'; tb.autocomplete = 'off'; tb.spellcheck = false; tb.value = keep.name; fb.append(lb, tb);
+  row.append(fa, fb);
+  p.append(row);
+  p.append(h('p', 'note small', 'The token is a local shared secret for this server start, not a login. A wrong token is refused by the server.'));
+  if (LIVE.error) { const er = h('p', 'answer', [h('span', 'lab', 'The server answered'), LIVE.error]); er.id = 'lv-error'; er.setAttribute('role', 'alert'); p.append(er); }
+  const bt = h('div', 'btns');
+  const nx = h('button', 'btn primary', v.next ? `Process next invoice (${v.next.id})` : 'Process next invoice'); nx.type = 'button'; nx.id = 'lv-next'; nx.disabled = !v.next || LIVE.busy;
+  nx.addEventListener('click', () => liveAct('process', {}, 'lv-next'));
+  const rs = h('button', 'btn', 'Reset session'); rs.type = 'button'; rs.id = 'lv-reset'; rs.addEventListener('click', () => liveAct('reset', {}, 'lv-reset'));
+  const dl = h('a', 'btn', 'Download receipt'); dl.id = 'lv-download'; dl.href = '/api/live/receipt'; dl.setAttribute('download', '');
+  const ck = h('button', 'btn', 'Check receipt'); ck.type = 'button'; ck.id = 'lv-check';
+  ck.addEventListener('click', async () => { const { json } = await liveCall('GET', 'verify'); LIVE.check = json; renderLive('lv-check'); });
+  bt.append(nx, rs, dl, ck);
+  p.append(bt);
+  if (v.next) p.append(h('p', 'note small', `Next to arrive: ${v.next.id}, ${v.next.supplierName}, ${money(v.next.amountValue)}. Passes so far: ${v.passes} of ${v.expectedPasses} in the signed session receipt; ${plural(v.apiCalls, 'PayPal call', 'PayPal calls')} made by this session.`));
+  if (LIVE.check) {
+    const c = LIVE.check;
+    const el = h('p', 'cmp' + (c.verifier.ok ? '' : ' differs'), `Frozen verifier code on this session's receipt: ${c.verifier.ok ? 'PASS' : 'FAIL'}. ${c.verifier.ok ? '' : c.verifier.errors.join(' | ') + ' '}${c.note}`);
+    el.id = 'lv-check-out'; el.dataset.ok = String(c.verifier.ok);
+    p.append(el);
+  }
+  p.append(h('p', 'note small', 'Pasted invoices are kept out of the signed session receipt, because the frozen verifier counts PROPOSED entries against the suite file. They have their own signed ledger: '), );
+  const al = h('a', null, 'download the pasted-invoices ledger'); al.href = '/api/live/receipt-pasted'; al.setAttribute('download', ''); al.id = 'lv-download-pasted';
+  p.lastChild.append(al, '.');
+
+  box.append(p);
+
+  const q = h('section', 'panel play');
+  q.append(h('h2', null, [h('span', 'n', '2'), 'Invoices that arrived']));
+  q.id = 'lv-arrivals';
+  if (!v.invoices.length) q.append(h('p', 'note', 'Nothing has arrived yet. Press Process next invoice.'));
+  const grid = h('div', 'holdgrid two');
+  for (const inv of v.invoices) grid.append(liveCard(inv));
+  q.append(grid);
+  const qq = h('p', 'note small', `Waiting for a person: ${v.queue.length ? v.queue.join(', ') : 'none'}.`); qq.id = 'lv-queue';
+  q.append(qq);
+  box.append(q);
+  // paste box (below the arrivals)
+  const pp = h('section', 'panel play');
+  pp.id = 'lv-paste-panel';
+  pp.append(h('h2', null, [h('span', 'n', '3'), 'Paste an invoice']));
+  pp.append(h('p', 'note', 'Paste or type any supplier invoice. The model reads it, then the gate decides. The purchase order number comes from the field beside the text, and the supplier id from the supplier register. The model is asked for neither.'));
+  const pf = h('div', 'fields');
+  const f1 = h('div', 'field wide'); const l1 = h('label', null, 'Invoice text'); l1.htmlFor = 'lv-text';
+  const tx = h('textarea'); tx.id = 'lv-text'; tx.spellcheck = false; tx.rows = 8; tx.value = keep.text ?? v.sampleInvoice.text; f1.append(l1, tx);
+  const f2 = h('div', 'field'); const l2 = h('label', null, 'Purchase order number'); l2.htmlFor = 'lv-po';
+  const po = h('input'); po.id = 'lv-po'; po.type = 'text'; po.autocomplete = 'off'; po.spellcheck = false; po.value = keep.po ?? v.sampleInvoice.poNumber; f2.append(l2, po);
+  pf.append(f1, f2);
+  pp.append(pf);
+  const pb = h('div', 'btns');
+  const go = h('button', 'btn primary', 'Read and propose'); go.type = 'button'; go.id = 'lv-paste'; go.disabled = !v.pasteAvailable || LIVE.busy;
+  go.addEventListener('click', () => liveAct('paste', { text: $('lv-text').value, poNumber: $('lv-po').value }, 'lv-paste'));
+  pb.append(go);
+  pp.append(pb);
+  if (!v.pasteAvailable) pp.append(h('p', 'norec', 'No model key is set on this server, so pasted invoices cannot be read. The six recorded Run 5 invoices still work. No proposal is invented.'));
+  box.append(pp);
+  const f = focusId && $(focusId);
+  if (f && !f.disabled) f.focus({ preventScroll: true });
+}
+
 // ---------- run switch and routing ----------
 let current = 4;
-let ready5 = false;
-const wantRun = () => (location.hash === '#run5' ? 5 : location.hash === '#run4' ? 4 : null);
+const ready = { 5: false, try: false, live: false };
+const HASH = { 4: '#run4', 5: '#run5', try: '#try', live: '#live' };
+const parseHash = () => {
+  const m = location.hash.match(/^#(run4|run5|try|live)(?::(.+))?$/);
+  if (!m) return null;
+  let id = null;
+  try { id = m[2] ? decodeURIComponent(m[2]) : null; } catch { id = null; }
+  return { view: { run4: 4, run5: 5, try: 'try', live: 'live' }[m[1]], id };
+};
+const wantRun = () => parseHash()?.view ?? null;
+// #run4:<suiteId> and #run5:<suiteId> select that record; an unknown id leaves the view as it opens.
+function applyDeepLink() {
+  const p = parseHash();
+  if (!p || !p.id) return;
+  if (p.view === 4 && current === 4 && BY_ID.has(p.id)) {
+    if (!visible().some((r) => r.id === p.id)) setFilter('all');
+    select(p.id);
+    const row = document.querySelector(`.row[data-id="${CSS.escape(p.id)}"]`);
+    if (row) $('inbox').scrollTop = Math.max(0, row.offsetTop - $('inbox').clientHeight / 2 + row.offsetHeight / 2);
+  } else if (p.view === 5 && current === 5 && I5 && I5.has(p.id)) select5(p.id);
+}
+function runDefs() {
+  const defs = [[4, `Run 4 · attack test · ${RECORDS.length} invoices`], [5, R5 ? `Run 5 · approvals · ${R5.invoices.length} invoices` : 'Run 5 · approvals'], ['try', 'Try your own invoice']];
+  if (LIVE.on) defs.push(['live', 'Live · your Sandbox']);
+  return defs;
+}
 function renderRunbar() {
   const bar = $('runbar');
   bar.textContent = '';
-  const defs = [[4, `Run 4 · attack test · ${RECORDS.length} invoices`], [5, R5 ? `Run 5 · approvals · ${R5.invoices.length} invoices` : 'Run 5 · approvals']];
-  for (const [n, label] of defs) {
+  for (const [n, label] of runDefs()) {
     const b = h('button', 'btn', label);
     b.type = 'button';
     b.dataset.run = String(n);
     b.setAttribute('aria-pressed', String(current === n));
-    b.addEventListener('click', () => { const hash = n === 5 ? '#run5' : '#run4'; if (location.hash !== hash) location.hash = hash; showRun(n); });
+    b.addEventListener('click', () => { if (location.hash !== HASH[n]) location.hash = HASH[n]; showRun(n); });
     bar.append(b);
   }
   bar.hidden = false;
 }
 async function showRun(n) {
-  if (n === current && (n === 4 || ready5)) { renderRunbar(); return; }
-  if (n === 5 && !ready5) {
-    try {
-      await loadRun5();
+  if (n === current && (n === 4 || ready[n])) { renderRunbar(); return; }
+  if (n === 'live' && !LIVE.on) return;
+  try {
+    if ((n === 5 || n === 'try') && !R5) await loadRun5();
+    if (n === 5 && !ready[5]) {
       renderSummary5(); renderInbox5(); renderFoot5();
       r5s.rp = await initReplay();
       renderPlay();
       select5(R5.invoices.find((i) => i.approverSteps.length && storyOf(i).text.includes('approved'))?.id || R5.invoices[0].id);
-      ready5 = true;
-    } catch (e) {
-      $('load-status').hidden = false;
-      $('load-status').textContent = 'Run 5 could not start: ' + (e && e.message ? e.message : e);
-      throw e;
+      ready[5] = true;
     }
+    if (n === 'try' && !ready.try) { await initTry(); renderTry(); ready.try = true; }
+    if (n === 'live' && !ready.live) { await liveRefresh(); renderLive(); ready.live = true; }
+  } catch (e) {
+    $('load-status').hidden = false;
+    $('load-status').textContent = 'This view could not start: ' + (e && e.message ? e.message : e);
+    throw e;
   }
   current = n;
   $('app').hidden = n !== 4;
   $('summary').hidden = n !== 4;
+  $('intro').hidden = n === 'try' || n === 'live';
   $('app5').hidden = n !== 5;
-  if (n === 5) $('load-status').hidden = true;
-  document.querySelector('.skip').setAttribute('href', n === 5 ? '#detail5' : '#detail');
+  $('apptry').hidden = n !== 'try';
+  $('applive').hidden = n !== 'live';
+  if (n !== 4) $('load-status').hidden = true;
+  document.querySelector('.skip').setAttribute('href', n === 5 ? '#detail5' : n === 4 ? '#detail' : '#runbar');
   renderRunbar();
+  applyDeepLink();
 }
-window.addEventListener('hashchange', () => { const w = wantRun(); if (w && w !== current) showRun(w); });
+window.addEventListener('hashchange', () => { const w = wantRun(); if (w !== null && w !== current) showRun(w); else if (w !== null) applyDeepLink(); });
 
 // ---------- boot ----------
 function boot() {
@@ -1287,7 +1622,16 @@ function boot() {
   if (cur) $('inbox').scrollTop = Math.max(0, cur.offsetTop - $('inbox').clientHeight / 2 + cur.offsetHeight / 2);
   renderRunbar();
   loadRun5().then(renderRunbar, () => {});
-  if (wantRun() === 5) showRun(5);
+  // The Live tab exists only where desk-server.mjs served this page (it adds the desk-live marker). A page
+  // served from anywhere else never asks for it, so the hosted desk makes no extra request.
+  if (liveAvailable()) {
+    fetch('/api/live/status').then((r) => (r.ok ? r.json() : null)).then((j) => {
+      if (j && j.ok) { LIVE.on = true; LIVE.view = j; renderRunbar(); if (wantRun() === 'live') showRun('live'); }
+    }).catch(() => {});
+  }
+  const w = wantRun();
+  if (w === 5 || w === 'try') showRun(w);
+  else if (w === 4) applyDeepLink();
 }
 try { boot(); } catch (e) {
   $('load-status').textContent = 'The desk could not start: ' + (e && e.message ? e.message : e);

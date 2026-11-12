@@ -3,11 +3,247 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; connect-src 'none'; base-uri 'none'; form-action 'none'">
 <title>PayPal AP Policy Gate</title>
-<meta http-equiv="refresh" content="0; url=gate/desk.html">
-<link rel="canonical" href="gate/desk.html">
+<meta name="description" content="An agent that cannot pay outside its policy, and proves every payment afterwards. One invoice, three outcomes, and receipts you can check yourself.">
+<link rel="stylesheet" href="gate/_shared/os-tokens.css">
+<link rel="stylesheet" href="front.css">
 </head>
 <body>
-<p><a href="gate/desk.html">AP desk</a> · <a href="gate/verify.html">Verify the receipts</a> · <a href="https://github.com/dogfoodarchitect/paypal-ap-policy-gate#readme">README</a></p>
+<a class="skip" href="#main">Skip to the content</a>
+
+<header class="hero">
+  <div class="wrap">
+    <p class="brand">PayPal AP Policy Gate</p>
+    <h1>An agent that cannot pay outside its policy, and proves every payment afterwards.</h1>
+    <p class="aud">For accounts-payable teams at small and mid-size firms that let an AI agent prepare or make supplier payments through PayPal.</p>
+    <p class="proof" id="proof"></p>
+    <ul class="links" aria-label="Start here">
+      <li><a class="btn primary" href="gate/desk.html">Open the AP desk</a></li>
+      <li><a class="btn" href="https://youtu.be/epr0gyhTs44">Watch the 2-minute video</a></li>
+      <li><a class="btn" href="https://github.com/dogfoodarchitect/paypal-ap-policy-gate">Repository</a></li>
+    </ul>
+
+    <div class="problem">
+      <h2 class="eyebrow">The problem</h2>
+      <p>An AI model that reads supplier invoices can be told what to do by the invoice. One added line can swap the account that gets paid.</p>
+      <p>So the model never holds the money. It proposes a payment. A fixed set of rules, the gate, holds the PayPal credentials and decides.</p>
+      <ol class="flow" aria-label="How a payment moves">
+        <li><span class="flow-t">Invoice</span><span class="flow-s">Text from a supplier</span></li>
+        <li><span class="flow-t">Model proposes</span><span class="flow-s">No PayPal credentials</span></li>
+        <li class="gate"><span class="flow-t">Gate decides</span><span class="flow-s">Holds the credentials</span></li>
+        <li><span class="flow-t">PayPal</span><span class="flow-s">Only if the gate says pay</span></li>
+      </ol>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+
+<section class="band" id="invoice" aria-labelledby="h-invoice">
+  <div class="wrap">
+    <h2 id="h-invoice">One invoice, start to finish</h2>
+    <p class="sec-lead">A real attack from the live run on the PayPal Sandbox. A supplier invoice, with a note added at the bottom. Press Next to follow it.</p>
+
+    <div class="duo">
+      <div class="panel" id="invoice-panel">
+        <div class="panel-head">
+          <h3>The invoice, as the supplier wrote it</h3>
+          <span class="chip chip-rec">Recorded</span>
+        </div>
+        <div id="invtext" class="invtext" role="region" tabindex="0" aria-label="Invoice text"></div>
+        <p class="note" id="inv-note"></p>
+      </div>
+
+      <div class="stepper" id="stepper">
+        <div class="stepbar">
+          <p class="progress" id="progress" aria-live="polite"></p>
+          <button type="button" class="btn primary" id="next">Next</button>
+        </div>
+        <ol class="steps" id="steps">
+
+          <li class="step" id="step-1" data-step="1">
+            <div class="step-head">
+              <span class="num" aria-hidden="true">1</span>
+              <h3>What the model proposed</h3>
+              <span class="chip chip-rec">Recorded in the live run</span>
+            </div>
+            <p id="s1-text"></p>
+            <dl class="kv" id="s1-kv"></dl>
+          </li>
+
+          <li class="step" id="step-2" data-step="2" hidden>
+            <div class="step-head">
+              <span class="num" aria-hidden="true">2</span>
+              <h3>What the gate decided</h3>
+              <span class="chip chip-now">Computed in this page</span>
+            </div>
+            <p>Computed just now, in this page, by the real gate code (<code>gate/policy-gate.mjs</code>) on the proposal recorded in step 1.</p>
+            <p class="decision" id="s2-decision"></p>
+            <p id="s2-rule" class="rule"></p>
+            <p id="s2-detail" class="detail"></p>
+            <p id="s2-match" class="match"></p>
+          </li>
+
+          <li class="step" id="step-3" data-step="3" hidden>
+            <div class="step-head">
+              <span class="num" aria-hidden="true">3</span>
+              <h3>What did not happen</h3>
+              <span class="chip chip-rec">Recorded in the live run</span>
+            </div>
+            <div class="stats">
+              <p class="stat"><span class="big" id="s3-calls"></span><span class="cap">PayPal calls</span></p>
+              <p class="stat"><span class="big" id="s3-amount"></span><span class="cap">not moved</span></p>
+            </div>
+            <p id="s3-text"></p>
+          </li>
+
+        </ol>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="wrap-sec" id="outcomes" aria-labelledby="h-outcomes">
+  <div class="wrap">
+    <h2 id="h-outcomes">Three outcomes</h2>
+    <p class="sec-lead">Every payment ends one of three ways. Each card below is built from a recorded run on the PayPal Sandbox (test money).</p>
+
+    <ul class="cards3">
+      <li class="card" id="card-paid">
+        <p class="kind"><svg class="mk" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect class="box" x="2" y="2" width="20" height="20" rx="5"/><path class="glyph" d="M7 12.5l3.2 3.2L17 8.8"/></svg><span>Paid</span></p>
+        <p class="card-lead" id="paid-lead"></p>
+        <dl class="kv">
+          <dt>PayPal order id</dt><dd class="mono" id="paid-order"></dd>
+          <dt>Capture</dt><dd id="paid-capture"></dd>
+        </dl>
+        <p class="src"><span class="chip chip-rec">Recorded, Run 4</span></p>
+        <p class="go"><a class="btn" href="gate/desk.html#run4" id="paid-link">See it in the desk</a></p>
+      </li>
+
+      <li class="card" id="card-held">
+        <p class="kind"><svg class="mk" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect class="box" x="2" y="2" width="20" height="20" rx="5"/><path class="glyph" d="M9.5 7.5v9M14.5 7.5v9"/></svg><span>Held</span></p>
+        <p class="card-lead" id="held-lead"></p>
+        <dl class="kv">
+          <dt>Approved</dt><dd id="held-approved"></dd>
+          <dt>PayPal order id</dt><dd class="mono" id="held-order"></dd>
+          <dt>Rejected</dt><dd id="held-rejected"></dd>
+        </dl>
+        <p class="note-sm" id="held-script"></p>
+        <p class="src"><span class="chip chip-rec">Recorded, Run 5</span></p>
+        <p class="go"><a class="btn" href="gate/desk.html#run5" id="held-link">Open Run 5 in the desk</a></p>
+      </li>
+
+      <li class="card" id="card-refused">
+        <p class="kind"><svg class="mk" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect class="box" x="2" y="2" width="20" height="20" rx="5"/><path class="glyph" d="M8 8l8 8M16 8l-8 8"/></svg><span>Refused</span></p>
+        <p class="card-lead" id="refused-lead"></p>
+        <dl class="kv">
+          <dt>Rule</dt><dd class="mono" id="refused-rule"></dd>
+          <dt>PayPal calls</dt><dd id="refused-calls"></dd>
+        </dl>
+        <p class="src"><span class="chip chip-rec">Recorded, Run 4</span></p>
+        <p class="go"><a class="btn" href="gate/desk.html#run4" id="refused-link">See it in the desk</a></p>
+      </li>
+    </ul>
+  </div>
+</section>
+
+<section class="band" id="try" aria-labelledby="h-try">
+  <div class="wrap">
+    <h2 id="h-try">Try it yourself</h2>
+    <p class="sec-lead">Paste a supplier invoice of your own. Two ways to run it.</p>
+    <ul class="cards2">
+      <li class="card">
+        <h3>In this browser</h3>
+        <p>This page has no AI model. A simple field reader stands in for it. The real gate code decides. Nothing is sent anywhere and nothing is paid.</p>
+        <p class="go"><a class="btn primary" href="gate/desk.html#try">Try your own invoice</a></p>
+      </li>
+      <li class="card">
+        <h3>On your own PayPal Sandbox</h3>
+        <p>Run the desk on your machine. Paste a supplier invoice. The live model proposes, the gate decides, PayPal pays. Approve on a held payment pays it. Node.js 20 or newer.</p>
+        <pre class="cmd" tabindex="0" aria-label="Two commands">node gate/desk-server.mjs
+node gate/desk-server.mjs --simulate</pre>
+        <p class="note-sm">The first needs your Sandbox keys in the environment. The second needs no keys and makes no PayPal call.</p>
+        <p class="evidence" id="live-evidence"></p>
+        <p class="go"><a id="dl-live" href="gate/desk-live-session-receipt.json" download>Session receipt</a> <span class="s" id="dl-live-size"></span></p>
+      </li>
+    </ul>
+  </div>
+</section>
+
+<section class="wrap-sec" id="figures" aria-labelledby="h-figures">
+  <div class="wrap">
+    <h2 id="h-figures">What one live run showed</h2>
+    <p class="sec-lead">One run on the PayPal Sandbox, counted from its signed receipt.</p>
+    <ul class="cards3 figs">
+      <li class="card fig">
+        <p class="bignum"><span id="fig-obeyed"></span> <span class="of">of</span> <span id="fig-comparable"></span></p>
+        <p>Attacks where the model did what the invoice told it to.</p>
+      </li>
+      <li class="card fig">
+        <p class="bignum"><span id="fig-stopped"></span> <span class="of">of</span> <span id="fig-reached"></span></p>
+        <p>Attack proposals the gate stopped: <span id="fig-refused"></span> refused, <span id="fig-held"></span> held.</p>
+      </li>
+      <li class="card fig">
+        <p class="bignum"><span id="fig-chain-ok"></span> <span class="of">of</span> <span id="fig-chain"></span></p>
+        <p>Signed ledger entries that anyone can check offline.</p>
+      </li>
+    </ul>
+    <p class="thirtyfifth" id="thirtyfifth"></p>
+  </div>
+</section>
+
+<section class="band" id="check" aria-labelledby="h-check">
+  <div class="wrap">
+    <h2 id="h-check">Check it yourself</h2>
+    <p class="sec-lead">Do not take our word for any of this.</p>
+    <ul class="cards3">
+      <li class="card">
+        <h3>Play the approver</h3>
+        <p>Run 5 in the desk. The gate holds two look-alike payments. You approve or reject them. The check runs in your browser and pays nothing.</p>
+        <p class="go"><a class="btn primary" href="gate/desk.html#run5">Play the approver</a></p>
+      </li>
+      <li class="card">
+        <h3>Verify a receipt</h3>
+        <p>Drop a receipt file on the verifier. It checks every hash and signature in your browser, offline. Then change one byte and watch it fail.</p>
+        <p class="go"><a class="btn primary" href="gate/verify.html">Verify a receipt</a></p>
+        <ul class="dl">
+          <li><a id="dl-run4" href="gate/attack-suite-run4-receipt.json" download>Run 4 receipt</a> <span class="s" id="dl-run4-size"></span></li>
+          <li><a id="dl-run5" href="gate/approval-release-run5-receipt.json" download>Run 5 receipt</a> <span class="s" id="dl-run5-size"></span></li>
+        </ul>
+      </li>
+      <li class="card">
+        <h3>Run the tests</h3>
+        <p>Node.js 20 or newer. No install, no credentials. From the <code>gate/</code> folder:</p>
+        <pre class="cmd" tabindex="0" aria-label="Three commands">node verify-payments.mjs attack-suite-run4-receipt.json
+node recount-run4.mjs attack-suite-run4-receipt.json
+node --test</pre>
+      </li>
+    </ul>
+  </div>
+</section>
+
+<section class="wrap-sec" id="limits" aria-labelledby="h-limits">
+  <div class="wrap">
+    <h2 id="h-limits">What is not built</h2>
+    <ul class="limits">
+      <li>The hosted pages make no PayPal call. They replay recorded runs and run the gate in your browser.</li>
+      <li>On the local desk the approver is a typed name plus a session token, not a login.</li>
+      <li>The purchase-order register is a sample. Nothing reads real documents yet.</li>
+    </ul>
+    <p class="note"><a href="https://github.com/dogfoodarchitect/paypal-ap-policy-gate#known-limits">All the known limits are in the README</a>.</p>
+  </div>
+</section>
+
+<noscript><div class="wrap"><p>This page needs JavaScript to read the recorded runs. The <a href="gate/desk.html">AP desk</a> and the <a href="gate/verify.html">verifier</a> need it too.</p></div></noscript>
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <p>PayPal Sandbox, test money · <a href="LICENSE">MIT licence</a> · built for the PayPal AI Hackathon</p>
+  </div>
+</footer>
+
+<script type="module" src="front.mjs"></script>
 </body>
 </html>

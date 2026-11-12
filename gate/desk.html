@@ -190,7 +190,7 @@ button.btn:disabled, button.btn.primary:disabled { background: var(--panel); col
 .answer .lab { display: block; font-size: 14px; font-weight: 400; color: var(--ink2); }
 
 /* ledger */
-.ledger { width: 100%; border-collapse: collapse; }
+.ledger { width: 100%; border-collapse: collapse; display: block; max-width: 100%; overflow-x: auto; }
 .ledger th { text-align: left; font-size: 14px; color: var(--ink2); font-weight: 600; padding: 0 8px 4px 0; border-bottom: 1px solid var(--line); }
 .ledger td { padding: 5px 8px 5px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
 .ledger td.mono { font-size: 14px; }
@@ -242,6 +242,9 @@ button.btn[aria-pressed="true"] { border: 2px solid var(--accent); background: v
 .passblock h3 { font-size: 16px; margin: 0 0 2px; }
 .ledger td .s { display: block; font-size: 14px; color: var(--ink2); font-family: var(--mono); }
 .pointer { margin: 0 0 12px; }
+a.btn { font: inherit; font-weight: 600; padding: 8px 14px; min-height: 44px; border-radius: 10px; border: 1.5px solid var(--ink); background: var(--panel); color: var(--ink); display: inline-flex; align-items: center; text-decoration: none; }
+a.btn:hover { border-color: var(--accent); }
+.out h3 { font-size: 16px; margin: 12px 0 4px; }
 .cols.gap { margin-top: 16px; }
 
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
@@ -256,7 +259,7 @@ button.btn[aria-pressed="true"] { border: 2px solid var(--accent); background: v
     <a href="./verify.html">Verify the receipts</a>
   </nav>
   <nav class="runbar" id="runbar" aria-label="Choose a run" hidden></nav>
-  <p class="intro">Recorded from one live run on the PayPal Sandbox. The gate on this page is the same code, running in your browser. Nothing leaves the page.</p>
+  <p class="intro" id="intro">Recorded from one live run on the PayPal Sandbox. The gate on this page is the same code, running in your browser. Nothing leaves the page.</p>
   <p class="summary" id="summary"></p>
 
   <p id="load-status" role="status">The desk did not load. Serve this page from its web address and allow scripts, so the gate module can load.</p>
@@ -273,6 +276,9 @@ button.btn[aria-pressed="true"] { border: 2px solid var(--accent); background: v
     </div>
     <footer class="foot" id="foot"></footer>
   </div>
+
+  <div id="apptry" hidden></div>
+  <div id="applive" hidden></div>
 
   <div id="app5" hidden>
     <p class="summary" id="summary5"></p>

@@ -1,9 +1,9 @@
 {
   "bundle": "paypal-ap-policy-gate/gate",
   "schema": "kpf-export-manifest/1",
-  "stage": "Public repository, folder gate/: live code generation po-v4; our 25 and the held-out 13 attack invoices; the recorded Run 1, Run 2, Run 3, Run 4 and Run 5 receipts; the Run 5 suite, runner, test file and summary; the 5-invoice recorded receipt; the archived po-v4, hold-v3 and patched-v2 code manifests; the Run 4 known-38 wrapper and second-blind set; verify.html, the AP desk (desk.html, desk.mjs, desk-data.mjs, desk-data-run5.mjs and the script that builds the data), a page that forwards the old playground address to the desk, and the three recount scripts. README.md, LICENSE and media/ sit one level up and are not listed here.",
-  "generatedBy": "b11-assembly",
-  "generatedAtUTC": "2026-11-12T01:35:26.000Z",
+  "stage": "Public repository, folder gate/: live code generation po-v4; our 25 and the held-out 13 attack invoices; the recorded Run 1, Run 2, Run 3, Run 4 and Run 5 receipts; the Run 5 suite, runner, test file and summary; the 5-invoice recorded receipt; the archived po-v4, hold-v3 and patched-v2 code manifests; the Run 4 known-38 wrapper and second-blind set; verify.html, the AP desk (desk.html, desk.mjs, desk-data.mjs, desk-data-run5.mjs and the script that builds the data), a page that forwards the old playground address to the desk, and the three recount scripts. README.md, LICENSE and media/ sit one level up and are not listed here. Round B.12 adds the local desk server (desk-server.mjs, desk-live.mjs), the field reader used by the hosted Try tab (invoice-reader.mjs), their tests, and one scripted live desk session: its signed receipt, the signed ledger of its pasted invoice, and a summary.",
+  "generatedBy": "b12-assembly",
+  "generatedAtUTC": "2026-11-12T03:41:32.000Z",
   "codeManifestSha256": "890bcaf206e325e0959738129cfd57295063991dcbef089fb0839a3afbb76417",
   "archivedCodeManifestSha256": {
     "patched-v2": "803beaea2e7bdbf5fb90bd576f9b5a43766808355d1e8ed520887599a6032084",
@@ -16,11 +16,15 @@
   "attackSuiteRun3ReceiptSha256": "a05eee04c5bae3e04ef270e19d16c5150a636ba0d6ef9b7354421c309112491e",
   "attackSuiteRun4ReceiptSha256": "fa28cf7e7d5ef3df5f7609fa333fd43fc3b40f38ddc25b67866e0375fcdb9a01",
   "approvalReleaseRun5ReceiptSha256": "f9825bda51bfc8077f51e7377bcf45179bef074fcd8dad41d21da87485051091",
-  "fileCount": 57,
+  "fileCount": 64,
   "files": {
     "CODE-MANIFEST.json": {
       "bytes": 5653,
       "sha256": "890bcaf206e325e0959738129cfd57295063991dcbef089fb0839a3afbb76417"
+    },
+    "DESK-LIVE-SUMMARY.md": {
+      "bytes": 2065,
+      "sha256": "e7ab7d241a43acf51a4872d36a21c54a1da1cb718825f10e96290cba6c8ca3b1"
     },
     "LICENSE": {
       "bytes": 1281,
@@ -127,12 +131,12 @@
       "sha256": "3fe884fc41705e515cc184dfc2921c8ee67c80a09cd2b8e3dd209803c3719479"
     },
     "desk.html": {
-      "bytes": 18769,
-      "sha256": "b6e12e14adee35158298d2efb1ab78b5f6817bc1dbf7347a4a1f4c972a06a56f"
+      "bytes": 19237,
+      "sha256": "6eec3cdf0fc8c76270062e1ce7265d0cf2624b5936616b424b545a03351c508f"
     },
     "desk.mjs": {
-      "bytes": 70610,
-      "sha256": "e65ddc8b63034afcdf7167e200bbd150a63600bfebec1ded5487600e82142225"
+      "bytes": 93513,
+      "sha256": "6c4ffce5e20b15fc39fb284c4df2b2ff6d8883f0baa6fdbca79c4cd316ad1875"
     },
     "hosted-demo-server.mjs": {
       "bytes": 138587,
@@ -245,6 +249,30 @@
     "RUN5-SUMMARY.md": {
       "bytes": 4026,
       "sha256": "e82c938186d057d0023e36c1a7f291ec25579a92f56db10250e04bb0c9d80d54"
+    },
+    "desk-live-session-receipt.json": {
+      "bytes": 121393,
+      "sha256": "51f88f1086518e6ee2a483d4aab339a2edd5572d1d2930cd2dd6dc795254ece8"
+    },
+    "desk-live.mjs": {
+      "bytes": 30161,
+      "sha256": "c48873f43288769ff2741112f7915e89988578e252783dbd270cf1399b205ee1"
+    },
+    "desk-live.test.mjs": {
+      "bytes": 12992,
+      "sha256": "8000b44b5570e586556cb0d7b11fd91609248d61c94caf7f02a5ed86d7ff48ad"
+    },
+    "desk-server.mjs": {
+      "bytes": 9254,
+      "sha256": "581f9a469a9a7e98cb84c69f49f61c0651902bf13c9fd0ae683d647d4b4821d5"
+    },
+    "invoice-reader.mjs": {
+      "bytes": 1839,
+      "sha256": "9dedbb95a81fe70adfe2ed1e04b3d5a8f5ce9434fadb0837f57f06983ac4f063"
+    },
+    "desk-live-session-pasted-ledger.json": {
+      "bytes": 11584,
+      "sha256": "532e867b9ca8a2e9aae3db626b4c5ab0b7f6e6f842a16480d8f25fd5a7f610d3"
     }
   }
 }
