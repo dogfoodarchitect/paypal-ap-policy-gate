@@ -2,7 +2,9 @@
 // Every decision shown as "Run it again here" comes from the real policy-gate.mjs and purchase-orders.mjs in this
 // folder, running in this browser. No network, no PayPal. Every count is computed from desk-data.mjs, which
 // make-desk-data.mjs builds from the suite files and the Run 4 receipt.
-import { PolicyGate, DEFAULT_AP_POLICY_GATE_CONFIG, replayPaidHistory } from './policy-gate.mjs';
+// Run 5 (the approval view) loads desk-data-run5.mjs on demand. It runs the real PolicyGate, approveHeldProposal,
+// rejectHeldProposal and processAgentPaymentProposal in this page against recorded PayPal answers. No network.
+import { PolicyGate, DEFAULT_AP_POLICY_GATE_CONFIG, replayPaidHistory, processAgentPaymentProposal } from './policy-gate.mjs';
 import { DEFAULT_PURCHASE_ORDERS } from './purchase-orders.mjs';
 import { DESK_DATA as DATA } from './desk-data.mjs';
 
@@ -265,7 +267,7 @@ function obeyTag(rec) {
   return h('p', 'tag', 'Not scored: no single honest or obedient answer to compare');
 }
 
-function proposalBlock(rec) {
+function proposalBlock(rec, noTag) {
   const p = rec.gateProposal;
   const dl = h('dl', 'kv');
   const add = (k, v, mono) => dl.append(h('dt', null, k), h('dd', mono ? 'mono' : null, v));
@@ -276,7 +278,7 @@ function proposalBlock(rec) {
   add('Invoice number', strOf(p.invoiceId) || 'none', true);
   add('Purchase order', [strOf(p.poNumber) || 'none', strOf(p.poNumber) ? h('span', 'src', rec.modelWrotePo ? ' (written by the model)' : ' (from the invoice record; the model is not asked for it)') : null], true);
   add('Reason', strOf(p.reason) || 'none');
-  return [obeyTag(rec), dl];
+  return noTag ? [dl] : [obeyTag(rec), dl];
 }
 
 function poBlock(rec) {
@@ -663,6 +665,615 @@ function renderFoot() {
   f.append(ul);
 }
 
+// ================================================================================================
+// Run 5: approvals. The replay below runs the real gate code in this page. PayPal answers are replayed from the
+// receipt, and only while the visitor's path equals the recorded run. Nothing here makes a network call.
+// ================================================================================================
+const fmtTime = (iso) => (iso ? String(iso).replace('T', ' ').slice(0, 19) + ' UTC' : 'time not recorded');
+const SCRIPTED = 'entered by the run script, not clicked by a person';
+let R5 = null;
+let P5 = null;
+let I5 = null;
+let REC_ACTION = null;
+const r5s = { id: null, rp: null };
+
+async function loadRun5() {
+  if (R5) return;
+  const m = await import('./desk-data-run5.mjs');
+  R5 = m.RUN5_DATA;
+  P5 = new Map(R5.passes.map((p) => [p.suiteId, p]));
+  I5 = new Map(R5.invoices.map((i) => [i.id, i]));
+  // What the recorded approver did to each held invoice, from the receipt's own approver list.
+  REC_ACTION = new Map();
+  for (const a of R5.approverSteps) REC_ACTION.set(a.target, a);
+  const stateCounts = R5.run.stageCounts;
+  const paidPasses = R5.passes.filter((p) => p.recorded.outcome === 'EXECUTED').length;
+  if (paidPasses !== stateCounts.EXECUTED) throw new Error(`The Run 5 data disagrees with the receipt: ${paidPasses} paid passes, the receipt has ${stateCounts.EXECUTED} EXECUTED entries.`);
+}
+
+const outcomeEntry = (pass) => pass.ledger.find((e) => ['HELD', 'REFUSED', 'EXECUTED'].includes(e.stage)) || null;
+const supplierOfProp = (p) => p.supplierName || 'No supplier named';
+
+function storyOf(inv) {
+  const passes = inv.passIds.map((id) => P5.get(id));
+  const paid = passes.some((p) => p.recorded.outcome === 'EXECUTED');
+  const words = [];
+  if (passes[0].recorded.decision === 'ALLOW') words.push('Paid');
+  else {
+    words.push(passes[0].recorded.decision === 'HOLD' ? 'Held' : 'Refused');
+    for (const s of inv.approverSteps) words.push(s.status === 'APPROVED' ? 'approved' : s.status === 'REJECTED' ? 'rejected' : 'approval denied');
+    if (paid) words.push('paid');
+    if (passes.some((p) => p.reusesProposalOf && p.recorded.decision === 'DENY')) words.push('repeat refused');
+  }
+  const rejected = inv.approverSteps.some((s) => s.status === 'REJECTED');
+  return { text: words.join(', '), kind: paid ? 'paid' : rejected ? 'refused' : 'held' };
+}
+
+// ---------- recorded PayPal answers (no network) ----------
+function recordedClient(pass) {
+  const r = pass.recorded; let n = 0;
+  return {
+    mode: 'recorded-replay',
+    getApiCallCount: () => n,
+    async createOrder() { n += 1; return { id: r.paypalOrderId }; },
+    async captureOrder() { n += 1; return { id: r.paypalCaptureId, status: r.captureStatus }; },
+    async getOrder() { n += 1; return { status: r.orderStatus }; },
+  };
+}
+// Used when no payment was recorded for the visitor's path. It holds no id, so none can be shown.
+function silentClient() {
+  return {
+    mode: 'no-recording',
+    getApiCallCount: () => 0,
+    async createOrder() { return { id: null }; },
+    async captureOrder() { return { id: null, status: 'COMPLETED' }; },
+    async getOrder() { return { status: 'COMPLETED' }; },
+  };
+}
+
+// ---------- the replay ----------
+function newReplay() {
+  const entries = [];
+  return {
+    gate: new PolicyGate(DEFAULT_AP_POLICY_GATE_CONFIG),
+    entries,
+    ledger: { append: (e) => { entries.push({ stage: e.stage, proposalId: e.proposalId, actor: e.actor }); return { index: entries.length, receiptHash: null, stage: e.stage }; } },
+    onRecord: true,
+    why: null,
+    items: [],       // passes run so far: { phase, pass, out, same, ids }
+    holds: [],       // held payments the visitor can decide
+    restIdx: 0,
+    busy: false,
+  };
+}
+async function runPass(rp, proposal, useRecord, pass) {
+  const client = useRecord && pass ? recordedClient(pass) : silentClient();
+  try {
+    const res = await processAgentPaymentProposal({ proposal, policyGate: rp.gate, paypalClient: client, ledger: rp.ledger, timestamp: R5.run.fixedEvaluationTimestamp, captureImmediately: true });
+    return { res, err: null, proposal };
+  } catch (err) { return { res: null, err, proposal }; }
+}
+const sameAnswer = (v, rec) => !!v && v.decision === rec.decision && v.reasonCode === rec.reasonCode;
+function diverge(rp, why) { if (rp.onRecord) { rp.onRecord = false; rp.why = why; } }
+
+async function proposeStep(rp, record, phase) {
+  const pass = P5.get(record);
+  const useRecord = rp.onRecord && pass.recorded.outcome === 'EXECUTED';
+  const out = await runPass(rp, pass.gateProposal, useRecord, pass);
+  const v = out.res?.verdict || null;
+  const same = sameAnswer(v, pass.recorded);
+  if (!same) diverge(rp, `${record}: the gate here answered ${v ? v.reasonCode : 'with an error'}, the recorded run ${pass.recorded.reasonCode}`);
+  const item = { phase, pass, out, same, ids: useRecord && same && out.res.status === 'EXECUTED' };
+  rp.items.push(item);
+  if (v && v.decision === 'HOLD') rp.holds.push({ phase, target: record, pass, proposal: out.proposal, answers: [], release: null, again: null });
+  return item;
+}
+async function initReplay() {
+  const rp = newReplay();
+  for (const s of R5.script.open) await proposeStep(rp, s.record, 'open');
+  return rp;
+}
+
+// What the recorded run did with this target: { action, status, reasonCode, entry, step }
+function recordedFor(target) {
+  const a = REC_ACTION.get(target);
+  if (!a) return null;
+  const inv = I5.get(target);
+  const entry = a.signedLedgerEntryIndex === null ? null : inv.ledger.find((e) => e.index === a.signedLedgerEntryIndex) || null;
+  return { action: a.action, status: a.status, reasonCode: a.verdict?.reasonCode ?? null, detail: a.verdict?.reasonDetail ?? null, entry, by: a.by };
+}
+function recordedSentence(target) {
+  const rf = recordedFor(target);
+  if (!rf) return 'The recorded run did not decide this payment.';
+  const who = `${rf.by} (${SCRIPTED})`;
+  const when = rf.entry ? `, signed entry #${rf.entry.index}, recorded ${fmtTime(rf.entry.recordedAt)}` : '';
+  if (rf.status === 'APPROVED') return `In the recorded run ${who} approved it${when}, and it was paid.`;
+  if (rf.status === 'REJECTED') return `In the recorded run ${who} rejected it${when}. Nothing was paid.`;
+  return `In the recorded run ${who} tried to approve it and the gate denied it (${rf.reasonCode}). Nothing was paid.`;
+}
+function lookAlikeSentence(rp, hold) {
+  const others = rp.holds.filter((x) => x !== hold);
+  const key = (p) => [strOf(p.payeeEmail).toLowerCase(), Number(p.amountValue).toFixed(2), strOf(p.currencyCode)].join('|');
+  if (!others.some((x) => key(x.proposal) === key(hold.proposal))) return null;
+  return 'The gate cannot tell this payment from the other held one: same supplier, same amount, same currency. That is why a person decides.';
+}
+
+function ans(hold, label, text, good, extra) { hold.answers.push({ label, text, good: !!good, extra: extra || [] }); }
+const GATE_HERE = 'The gate answers, computed by the real gate code in this page. No PayPal call.';
+
+async function decide(rp, hold, action) {
+  if (rp.busy) return;
+  rp.busy = true;
+  try {
+    const who = $('r5-name').value;
+    const rf = recordedFor(hold.target);
+    const ts = R5.run.fixedEvaluationTimestamp;
+    const extra = [];
+    const notRecorded = (why) => { diverge(rp, why); extra.push(recordedSentence(hold.target)); const la = lookAlikeSentence(rp, hold); if (la) extra.push(la); extra.push('No payment was recorded for this path.'); };
+    try {
+      if (action === 'approve') {
+        const res = rp.gate.approveHeldProposal(hold.proposal, { approvedBy: who, timestamp: ts, ledger: rp.ledger });
+        if (res.ok && res.idempotent) {
+          ans(hold, GATE_HERE, `APPROVED. ${who.trim()} had already approved this payment. Nothing new is recorded and nothing changes.`, false);
+        } else if (res.ok) {
+          const match = !!rf && rf.action === 'approve' && rf.status === 'APPROVED';
+          if (!match) notRecorded(`${hold.target}: approved here, the recorded run did not`);
+          ans(hold, GATE_HERE, `APPROVED by ${who.trim()}, once. The release goes through the gate again.`, true, extra);
+          await releaseHold(rp, hold, match);
+        } else {
+          const match = !!rf && rf.action === 'approve' && rf.status === 'DENIED' && rf.reasonCode === res.verdict.reasonCode;
+          if (!match) notRecorded(`${hold.target}: the approval answer differs from the recorded run`);
+          ans(hold, GATE_HERE, `${res.status}: ${res.verdict.reasonCode}. ${res.verdict.reasonDetail || ''}`.trim(), match, [ruleSentence(res.verdict.reasonCode, POLICY), ...(match ? [recordedSentence(hold.target), 'The recorded run got the same answer from the same gate code. No payment was made on either path.'] : extra)]);
+        }
+      } else {
+        const res = rp.gate.rejectHeldProposal(hold.proposal, { rejectedBy: who, timestamp: ts, ledger: rp.ledger });
+        const match = !!rf && rf.action === 'reject';
+        if (!match) notRecorded(`${hold.target}: rejected here, the recorded run did not`);
+        ans(hold, GATE_HERE, `${res.status} by ${who.trim()}. The payment will not be made. Nothing was paid.`, true, match ? [recordedSentence(hold.target)] : extra);
+      }
+    } catch (e) {
+      ans(hold, GATE_HERE, strOf(e.message), false);
+    }
+  } finally { rp.busy = false; }
+  renderPlay(`${action}-${hold.target}`);
+}
+
+async function releaseHold(rp, hold, onRecordNow) {
+  const decideStep = R5.script.decide.find((d) => d.target === hold.target);
+  const rel = decideStep?.releases[0] || null;
+  const relPass = rel ? P5.get(rel.record) : null;
+  const proposal = { ...hold.proposal, proposalId: rel?.newProposalId ?? hold.proposal.proposalId };
+  const useRecord = rp.onRecord && onRecordNow && !!relPass && relPass.recorded.outcome === 'EXECUTED';
+  const out = await runPass(rp, proposal, useRecord, relPass);
+  const v = out.res?.verdict || null;
+  const same = !!relPass && sameAnswer(v, relPass.recorded);
+  if (relPass && !same) diverge(rp, `${hold.target}: the release answer differs from the recorded run`);
+  hold.release = { out, relPass, same, ids: useRecord && same && out.res?.status === 'EXECUTED', proposal };
+}
+
+async function sendAgain(rp, hold) {
+  if (rp.busy || !hold.release) return;
+  rp.busy = true;
+  try {
+    const decideStep = R5.script.decide.find((d) => d.target === hold.target);
+    const ag = decideStep?.releases[1] || null;
+    const agPass = ag ? P5.get(ag.record) : null;
+    const proposal = { ...hold.release.proposal, proposalId: ag?.newProposalId ?? hold.release.proposal.proposalId };
+    const out = await runPass(rp, proposal, false, null);
+    const v = out.res?.verdict || null;
+    const same = !!agPass && sameAnswer(v, agPass.recorded);
+    hold.again = { out, agPass, same, onRecord: rp.onRecord };
+  } finally { rp.busy = false; }
+  renderPlay(`again-${hold.target}`);
+}
+
+async function nextStep(rp) {
+  if (rp.busy) return;
+  rp.busy = true;
+  try {
+    const steps = R5.script.rest;
+    let i = rp.restIdx;
+    while (i < steps.length && steps[i].do !== 'propose') i += 1;
+    if (i < steps.length) { await proposeStep(rp, steps[i].record, 'rest'); rp.restIdx = i + 1; }
+  } finally { rp.busy = false; }
+  renderPlay('next');
+}
+const nextRecord = (rp) => { const st = R5.script.rest; for (let i = rp.restIdx; i < st.length; i += 1) if (st[i].do === 'propose') return st[i].record; return null; };
+
+// ---------- Run 5 rendering ----------
+function idsBlock(pass, out, label) {
+  const r = pass.recorded;
+  const when = outcomeEntry(pass)?.recordedAt;
+  const box = h('div', 'recd');
+  box.dataset.recorded = 'true';
+  box.append(h('span', 'lab', `${label} Recorded on the PayPal Sandbox at ${fmtTime(when)}. Copied from the receipt. This page made no PayPal call.`));
+  const dl = h('dl', 'kv ids');
+  const add = (k, v) => dl.append(h('dt', null, k), h('dd', 'mono', v));
+  add('PayPal order', strOf(out.res.order?.id) || 'none');
+  add('Capture', strOf(out.res.capture?.id) || 'none');
+  add('Read back', `order ${r.orderStatus}, capture ${r.captureStatus}`);
+  box.append(dl);
+  box.append(h('p', 'note', `${plural(r.calls.length, 'PayPal call', 'PayPal calls')} for this payment, each with a Paypal-Debug-Id:`));
+  const ul = h('ul', 'calls');
+  for (const c of r.calls) ul.append(h('li', null, [`${c.debugId} `, h('span', 's', `${c.method} ${c.path} ${c.status}`)]));
+  box.append(ul);
+  return box;
+}
+function noRecordBlock(text) {
+  const b = h('p', 'norec', text);
+  b.dataset.norecord = 'true';
+  return b;
+}
+function decisionLine(v, size) {
+  const kind = KIND[v.decision] || 'refused';
+  return h('div', `dec ${kind} ${size || ''}`.trim(), [mark(kind), decWord(v.decision)]);
+}
+function cmpLine(same, rec, v, what) {
+  if (same) return h('p', 'cmp', `Same as the recorded run: ${kindWord(rec)}, ${rec.reasonCode}.`);
+  return h('p', 'cmp differs', `Different from the recorded run (${kindWord(rec)}, ${rec.reasonCode}). The gate here answered ${v ? decWord(v.decision) + ', ' + v.reasonCode : 'with an error'}.`);
+}
+
+function morningRow(item) {
+  const { pass, out, same } = item;
+  const v = out.res?.verdict;
+  const p = pass.gateProposal;
+  const kind = v ? KIND[v.decision] || 'refused' : 'refused';
+  const li = h('li');
+  li.dataset.pass = pass.suiteId;
+  li.dataset.decision = v ? v.decision : 'ERROR';
+  li.dataset.reason = v ? v.reasonCode : 'GATE_ERROR';
+  li.dataset.same = String(same);
+  const body = h('div');
+  body.append(h('span', 't', [`${pass.suiteId} · ${supplierOfProp(p)} · ${money(p.amountValue)} · `, h('span', 's', v ? `${decWord(v.decision)}, ${v.reasonCode}` : 'gate error')]));
+  body.append(h('div', null, v ? cmpLine(same, pass.recorded, v) : h('p', 'cmp differs', strOf(out.err?.message))));
+  if (v && out.res.status === 'EXECUTED') body.append(item.ids ? idsBlock(pass, out, 'Payment.') : noRecordBlock('The gate here admitted this payment. No payment was recorded for this path, so there is no PayPal id to show.'));
+  li.append(mark(kind, 'mk-sm'), body);
+  return li;
+}
+
+function holdCard(rp, hold) {
+  const p = hold.proposal;
+  const inv = I5.get(hold.target);
+  const hrec = rp.gate.getHold(p);
+  const state = hrec ? hrec.status : 'none';
+  const stateWord = { held: 'Held', approved: 'Approved', rejected: 'Rejected', none: 'Not held' }[state] || state;
+  const card = h('div', 'hold');
+  card.dataset.hold = hold.target;
+  card.dataset.state = state;
+  const v = hold.pass && rp.items.find((x) => x.pass === hold.pass)?.out.res?.verdict;
+  card.append(h('div', 'hhead', [mark(state === 'rejected' ? 'refused' : 'held'), h('span', 'hid', hold.target), h('span', 'hsup', `${supplierOfProp(p)} · ${money(p.amountValue)} ${strOf(p.currencyCode)}`), h('span', 'chip', stateWord)]));
+  const dl = h('dl', 'kv');
+  const add = (k, val, mono) => dl.append(h('dt', null, k), h('dd', mono ? 'mono' : null, val));
+  add('Invoice number', strOf(p.invoiceId), true);
+  add('Reason', strOf(p.reason));
+  add('Purchase order', strOf(p.poNumber) || 'none', true);
+  if (v) add('Gate held it', [h('span', 'mono', v.reasonCode), ''], false);
+  card.append(dl);
+  if (v) card.append(h('p', 'rule', ruleSentence(v.reasonCode, POLICY)));
+  if (state !== 'held') card.append(h('p', 'note small', `What this invoice was, from the suite file: ${hold.pass.technique}.`));
+  if (inv.invoiceMemo) card.append(h('p', 'invmemo', `Note on the invoice: ${inv.invoiceMemo}`));
+  const btns = h('div', 'btns');
+  const b1 = h('button', 'btn primary', `Approve ${hold.target}`); b1.type = 'button'; b1.id = `approve-${hold.target}`;
+  b1.setAttribute('aria-label', `Approve ${hold.target}, ${supplierOfProp(p)}, ${money(p.amountValue)}`);
+  b1.addEventListener('click', () => decide(rp, hold, 'approve'));
+  const b2 = h('button', 'btn', `Reject ${hold.target}`); b2.type = 'button'; b2.id = `reject-${hold.target}`;
+  b2.setAttribute('aria-label', `Reject ${hold.target}, ${supplierOfProp(p)}, ${money(p.amountValue)}`);
+  b2.addEventListener('click', () => decide(rp, hold, 'reject'));
+  btns.append(b1, b2);
+  card.append(btns);
+  const box = h('div'); box.setAttribute('aria-live', 'polite'); box.dataset.answers = hold.target;
+  for (const a of hold.answers) {
+    const el = answerBox(a.label, a.text, a.good);
+    box.append(el);
+    for (const x of a.extra) box.append(h('p', 'note', x));
+  }
+  if (hold.release) box.append(releaseBlock(rp, hold));
+  if (hold.again) box.append(againBlock(hold));
+  card.append(box);
+  return card;
+}
+
+function releaseBlock(rp, hold) {
+  const { out, relPass, same, ids } = hold.release;
+  const v = out.res?.verdict;
+  const wrap = h('div');
+  wrap.dataset.release = hold.target;
+  if (!v) { wrap.append(answerBox('The release', strOf(out.err?.message))); return wrap; }
+  wrap.append(h('p', 'note', 'The release: the same proposal goes through the gate again.'));
+  wrap.append(decisionLine(v, 'sm'));
+  wrap.append(h('p', 'code', v.reasonCode));
+  wrap.append(h('p', 'zero', 'Computed in this page. 0 PayPal calls made by this page.'));
+  if (relPass) wrap.append(cmpLine(same, relPass.recorded, v));
+  if (out.res.status === 'EXECUTED') {
+    wrap.append(ids ? idsBlock(relPass, out, 'Release.') : noRecordBlock('The gate here admitted the release. No payment was recorded for this path, so there is no PayPal id to show and nothing was paid.'));
+    const b = h('button', 'btn', 'Send the same payment again'); b.type = 'button'; b.id = `again-${hold.target}`;
+    b.addEventListener('click', () => sendAgain(rp, hold));
+    wrap.append(h('div', 'btns', b));
+  }
+  return wrap;
+}
+function againBlock(hold) {
+  const { out, agPass, same } = hold.again;
+  const v = out.res?.verdict;
+  const wrap = h('div');
+  wrap.dataset.again = hold.target;
+  if (!v) { wrap.append(answerBox('The same payment again', strOf(out.err?.message))); return wrap; }
+  wrap.append(h('p', 'note', 'The same payment sent again, through the gate in this page:'));
+  wrap.append(decisionLine(v, 'sm'));
+  wrap.append(h('p', 'code', v.reasonCode));
+  wrap.append(h('p', 'rule', ruleSentence(v.reasonCode, POLICY)));
+  wrap.append(h('p', 'zero', 'Computed in this page. 0 PayPal calls made by this page.'));
+  if (agPass) wrap.append(cmpLine(same, agPass.recorded, v));
+  if (out.res.status === 'EXECUTED') wrap.append(noRecordBlock('The gate here admitted it. No such payment was recorded, so there is no PayPal id to show.'));
+  return wrap;
+}
+
+function restRow(item) {
+  const li = morningRow(item);
+  return li;
+}
+
+function renderPlay(focusId) {
+  const rp = r5s.rp;
+  const box = $('play');
+  const keepName = $('r5-name') ? $('r5-name').value : null;
+  box.textContent = '';
+  box.append(h('h2', null, [h('span', 'n', '1'), 'You are the approver']));
+  box.lastChild.id = 'h-play';
+  box.append(h('p', 'note', `Run 5 had one approver, ${R5.approver.name}. That approver was a script: the steps were ${SCRIPTED}. Here you click instead. Every answer below is computed by the real gate code in this page. PayPal answers are replayed from the receipt, only while your choices equal the recorded run. This page makes no PayPal call.`));
+  const nf = h('div', 'field nameline');
+  const nl = h('label', null, 'Your name as approver'); nl.htmlFor = 'r5-name';
+  const ni = h('input'); ni.id = 'r5-name'; ni.type = 'text'; ni.autocomplete = 'off'; ni.spellcheck = false; ni.value = keepName === null ? 'Guest approver' : keepName;
+  nf.append(nl, ni);
+  box.append(nf);
+  box.append(h('p', 'note small', 'A typed name, not a login. Change it between clicks to see what the gate does when a second person acts on the same payment.'));
+
+  // morning: steps run before the visitor's turn
+  box.append(h('h3', null, 'The morning, replayed through the gate in this page'));
+  const open = h('ul', 'minirows'); open.id = 'morning';
+  for (const it of rp.items.filter((x) => x.phase === 'open')) open.append(morningRow(it));
+  box.append(open);
+
+  // look-alike statement + the two holds
+  const openHolds = rp.holds.filter((x) => x.phase === 'open');
+  box.append(h('h3', null, `${openHolds.length === 1 ? 'The held payment' : `The ${openHolds.length} held payments`}, waiting for a person`));
+  if (openHolds.length >= 2) {
+    const key = (p) => [strOf(p.payeeEmail).toLowerCase(), Number(p.amountValue).toFixed(2), strOf(p.currencyCode)].join('|');
+    const first = openHolds[0].proposal;
+    if (openHolds.every((x) => key(x.proposal) === key(first))) {
+      const codes = [...new Set(openHolds.map((x) => rp.items.find((i) => i.pass === x.pass).out.res.verdict.reasonCode))];
+      const c = h('p', 'callout', `To the gate these two look the same: ${supplierOfProp(first)}, ${money(first.amountValue)} ${strOf(first.currencyCode)}, held under ${codes.join(' and ')}. One is the second half of a real order. The other is a paid invoice billed again under a new number. You decide.`);
+      c.id = 'lookalike';
+      box.append(c);
+    }
+  }
+  const grid = h('div', 'holdgrid' + (openHolds.length >= 2 ? ' two' : ''));
+  grid.id = 'holds';
+  for (const hd of openHolds) grid.append(holdCard(rp, hd));
+  box.append(grid);
+
+  // the rest of the day
+  box.append(h('h3', null, 'The rest of the day, in recorded order'));
+  const undecided = openHolds.some((x) => rp.gate.getHold(x.proposal)?.status === 'held');
+  const nxt = nextRecord(rp);
+  const rest = h('ul', 'minirows'); rest.id = 'restday';
+  for (const it of rp.items.filter((x) => x.phase === 'rest')) rest.append(restRow(it));
+  if (rp.items.some((x) => x.phase === 'rest')) box.append(rest);
+  const restHolds = rp.holds.filter((x) => x.phase === 'rest');
+  if (restHolds.length) {
+    const g2 = h('div', 'holdgrid'); g2.id = 'resthold';
+    for (const hd of restHolds) g2.append(holdCard(rp, hd));
+    box.append(g2);
+  }
+  if (nxt) {
+    const np = P5.get(nxt).gateProposal;
+    const b = h('button', 'btn primary', `Next: ${nxt} arrives`); b.type = 'button'; b.id = 'r5-next';
+    b.setAttribute('aria-label', `Next: ${nxt} arrives, ${supplierOfProp(np)}, ${money(np.amountValue)}`);
+    b.disabled = undecided;
+    b.addEventListener('click', () => nextStep(rp));
+    box.append(h('div', 'btns', b));
+    if (undecided) box.append(h('p', 'note small', 'Decide the held payments above first. Then the rest of the day arrives.'));
+  } else if (!restHolds.length) box.append(h('p', 'note', 'The day is complete.'));
+
+  // path status and reset
+  const ps = h('p', 'cmp' + (rp.onRecord ? '' : ' differs'));
+  ps.id = 'pathstate';
+  ps.dataset.onrecord = String(rp.onRecord);
+  ps.textContent = rp.onRecord ? 'Your choices so far equal the recorded run.' : `You have left the recorded run (${rp.why}). From here the gate's answers are computed in this page, and no PayPal id is shown because no payment was recorded for this path.`;
+  box.append(ps);
+  const rb = h('div', 'btns');
+  const reset = h('button', 'btn', 'Reset'); reset.type = 'button'; reset.id = 'r5-reset';
+  reset.addEventListener('click', async () => { r5s.rp = await initReplay(); renderPlay('approve-' + (r5s.rp.holds[0]?.target || '')); });
+  rb.append(reset);
+  box.append(rb);
+  const wl = h('p', 'note small');
+  wl.id = 'written';
+  wl.textContent = `Ledger entries this page wrote while you played (unsigned, not part of the receipt): ${rp.entries.length}. They are not shown as signed entries anywhere.`;
+  box.append(wl);
+  const f = focusId && ($(focusId === 'next' ? 'r5-next' : focusId) || $('h-play'));
+  if (f && !f.disabled) { if (f.id === 'h-play') f.tabIndex = -1; f.focus({ preventScroll: true }); }
+}
+
+// ---------- Run 5 inbox and detail ----------
+function renderSummary5() {
+  const paidPasses = R5.passes.filter((p) => p.recorded.outcome === 'EXECUTED');
+  const sum = paidPasses.reduce((a, p) => a + Math.round(Number(p.gateProposal.amountValue) * 100), 0);
+  const held = R5.invoices.filter((i) => P5.get(i.passIds[0]).recorded.decision === 'HOLD');
+  const by = (w) => held.filter((i) => storyOf(i).text.includes(w)).length;
+  const refused = R5.passes.filter((p) => p.recorded.decision === 'DENY').length;
+  $('summary5').textContent = `${plural(R5.invoices.length, 'invoice', 'invoices')}, ${plural(paidPasses.length, 'payment', 'payments')} of ${centsMoney(sum)} on the Sandbox. ${held.length} held for a person: ${by('approved')} approved then paid, ${by('rejected')} rejected, ${by('approval denied')} approval denied. ${plural(refused, 'repeat', 'repeats')} refused. The approver steps were ${SCRIPTED}.`;
+}
+function renderInbox5() {
+  const box = $('inbox5');
+  box.textContent = '';
+  $('shown5').textContent = `${R5.invoices.length} invoices`;
+  const ul = h('ul', 'rows');
+  for (const inv of R5.invoices) {
+    const st = storyOf(inv);
+    const p = inv.gateProposal;
+    const li = h('li');
+    const b = h('button', 'row');
+    b.type = 'button';
+    b.dataset.id = inv.id;
+    b.setAttribute('aria-current', String(inv.id === r5s.id));
+    b.setAttribute('aria-label', `${inv.id}, ${supplierOfProp(p)}, invoice ${p.invoiceId}, ${money(p.amountValue)}, ${st.text}`);
+    b.append(mark(st.kind), h('span', 'who', [h('span', 'sup', supplierOfProp(p)), h('span', 'inv', `${inv.id} · ${p.invoiceId}`), h('span', 'chip', st.text)]), h('span', 'right', h('span', 'amt', money(p.amountValue))));
+    b.addEventListener('click', () => select5(inv.id, { fromClick: true }));
+    b.addEventListener('keydown', onRowKey);
+    li.append(b);
+    ul.append(li);
+  }
+  box.append(ul);
+}
+function passBlock(inv, pass) {
+  const r = pass.recorded;
+  const kind = KIND[r.decision] || 'refused';
+  const wrap = h('div', 'passblock');
+  wrap.dataset.pass = pass.suiteId;
+  const oe = outcomeEntry(pass);
+  wrap.append(h('h3', null, `Pass ${pass.step} of ${R5.run.passes}`));
+  wrap.append(h('p', 'note', `${pass.technique}. ${pass.modelCallMade ? 'The model made a proposal for this pass.' : 'No model call: the proposal of an earlier pass goes through again.'}`));
+  wrap.append(h('div', `dec ${kind} sm`, [mark(kind), WORD[kind]]));
+  wrap.append(h('p', 'code', r.reasonCode));
+  wrap.append(h('p', 'rule', ruleSentence(r.reasonCode, POLICY)));
+  if (r.reasonDetail) wrap.append(h('p', 'note', `The gate said: ${r.reasonDetail}`));
+  wrap.append(h('p', 'note', `Recorded ${fmtTime(oe?.recordedAt)} (signed entry #${oe?.index}).`));
+  if (r.outcome === 'EXECUTED') {
+    const dl = h('dl', 'kv ids');
+    const add = (k, v) => dl.append(h('dt', null, k), h('dd', 'mono', v));
+    add('PayPal order', r.paypalOrderId || 'none');
+    add('Capture', r.paypalCaptureId || 'none');
+    add('Read back', r.orderStatus ? `order ${r.orderStatus}, capture ${r.captureStatus}` : 'not recorded');
+    wrap.append(dl);
+    wrap.append(h('p', 'note', `${plural(r.calls.length, 'PayPal call', 'PayPal calls')} for this payment, each with a Paypal-Debug-Id:`));
+    const ul = h('ul', 'calls');
+    for (const c of r.calls) ul.append(h('li', null, [`${c.debugId} `, h('span', 's', `${c.method} ${c.path} ${c.status}`)]));
+    wrap.append(ul);
+  } else wrap.append(h('p', 'zero', `${r.apiCalls} PayPal calls`));
+  return wrap;
+}
+function approverNote(inv, s) {
+  const box = h('div', 'callout plain');
+  box.dataset.approver = s.action;
+  const verb = s.action === 'approve' ? 'Approval' : 'Rejection';
+  const entry = s.signedLedgerEntryIndex === null ? null : inv.ledger.find((e) => e.index === s.signedLedgerEntryIndex);
+  box.append(h('strong', null, `${verb} by ${s.by}`), h('span', null, ` (${s.enteredBy === 'run script' ? SCRIPTED : s.enteredBy}). Result: ${s.status}.`));
+  if (entry) box.append(h('span', null, ` Signed entry #${entry.index}, recorded ${fmtTime(entry.recordedAt)}.`));
+  else if (s.verdict) {
+    box.append(h('span', null, ` ${s.verdict.reasonCode}: ${s.verdict.reasonDetail}. The gate writes no ledger entry for a denied approval, so this answer is only in the receipt's unsigned approver list.`));
+  }
+  return box;
+}
+function ledgerBlock5(inv) {
+  const wrap = h('div');
+  const t = h('table', 'ledger');
+  t.append(h('caption', 'sr', 'Signed ledger entries of this invoice'));
+  t.append(h('thead', null, h('tr', null, [h('th', null, 'Entry'), h('th', null, 'Stage'), h('th', null, 'Recorded (UTC)'), h('th', null, 'Hash')])));
+  const body = h('tbody');
+  for (const e of inv.ledger) body.append(h('tr', null, [h('td', 'mono', `#${e.index}`), h('td', null, [e.stage, h('span', 's', e.proposalId)]), h('td', 'mono', fmtTime(e.recordedAt).replace(' UTC', '')), h('td', 'mono', e.hash.slice(0, 12))]));
+  t.append(body);
+  wrap.append(t);
+  wrap.append(h('p', 'note', `Each entry is signed and names the hash of the entry before it. The whole run is one chain of ${R5.run.chainCount} entries.`));
+  const a1 = h('a', null, `Download ${R5.run.receipt}`); a1.href = `./${R5.run.receipt}`; a1.setAttribute('download', '');
+  const a2 = h('a', null, 'the verify page'); a2.href = './verify.html';
+  const chk = h('p', 'note', ['Check the Run 5 receipt: ', a1, ` (${R5.run.receiptBytes.toLocaleString('en-US')} bytes, sha256 ${R5.run.receiptSha256.slice(0, 12)}), then open `, a2, ' and drop the file on it. The verify page reads a dropped or selected file. It cannot load a receipt from a link.']);
+  chk.id = 'check-receipt';
+  wrap.append(chk);
+  wrap.append(h('p', 'note', 'The verifier checks signatures and the hash chain. It does not check that a release matches its approval; recount-run5.mjs does that from the signed entries.'));
+  return wrap;
+}
+function select5(id, opts = {}) {
+  const inv = I5.get(id);
+  if (!inv) return;
+  r5s.id = id;
+  document.querySelectorAll('#inbox5 .row').forEach((b) => b.setAttribute('aria-current', String(b.dataset.id === id)));
+  const st = storyOf(inv);
+  const p = inv.gateProposal;
+  const d = $('detail5');
+  d.textContent = '';
+  d.dataset.id = id;
+  const head = h('div', 'panel verdict');
+  head.append(mark(st.kind), h('span', 'vid', inv.id), h('span', 'vsup', `${supplierOfProp(p)} · ${money(p.amountValue)}`), h('span', 'vstat', st.text), h('span', 'vtech', inv.attackerWants ? `${inv.technique}. ${inv.attackerWants}` : inv.technique));
+  d.append(head);
+  const grid = h('div', 'dgrid');
+  const [inv1, invNote] = invoiceBlock({ invoiceText: inv.invoiceText, marks: [], markState: 'none', kind: 'control' });
+  const proposedAt = inv.ledger.find((e) => e.stage === 'PROPOSED')?.recordedAt;
+  const passes = inv.passIds.map((x) => P5.get(x));
+  const decided = h('div');
+  const shown = new Set();
+  passes.forEach((pass, idx) => {
+    decided.append(passBlock(inv, pass));
+    // approver steps that fall before the next pass of this invoice
+    const following = passes[idx + 1];
+    for (const s of inv.approverSteps) {
+      if (shown.has(s) || s.afterPass < pass.step || (following && s.afterPass >= following.step)) continue;
+      shown.add(s); decided.append(approverNote(inv, s));
+    }
+  });
+  grid.append(
+    panel('a', 'The invoice as the supplier wrote it', [inv1, invNote]),
+    panel('b', 'What the model proposed in the live run', [h('p', 'note', `Recorded ${fmtTime(proposedAt)}, model ${R5.run.model}.`), ...proposalBlock(inv, true)]),
+    panel('c', 'Purchase order', [poBlock(inv), h('p', 'note', 'Computed in this page by the real gate code, from the paid history before this invoice.')]),
+    panel('d', 'What the gate decided in the live run', decided),
+    panel('e', 'Signed ledger entries of this invoice', ledgerBlock5(inv)),
+  );
+  d.append(grid);
+  if (opts.fromClick && window.matchMedia('(max-width: 979px)').matches) d.scrollIntoView({ block: 'start', behavior: 'auto' });
+}
+function renderFoot5() {
+  const f = $('foot5');
+  f.textContent = '';
+  const run = R5.run;
+  f.append(h('p', null, `Run 5 was recorded on the PayPal Sandbox at ${fmtTime(run.generatedAt)} with ${run.model}: ${plural(R5.invoices.length, 'invoice', 'invoices')}, ${plural(run.passes, 'pass', 'passes')} through the gate, ${plural(run.modelCalls, 'model call', 'model calls')}, ${run.liveHttpsCalls} PayPal calls, ${run.chainCount} signed ledger entries. ${R5.suiteApproverNote || ''} Source files and the first 12 characters of their sha256:`));
+  const ul = h('ul');
+  for (const s of R5.sources) ul.append(h('li', null, `${s.file}  ${s.sha256.slice(0, 12)}`));
+  f.append(ul);
+}
+
+// ---------- run switch and routing ----------
+let current = 4;
+let ready5 = false;
+const wantRun = () => (location.hash === '#run5' ? 5 : location.hash === '#run4' ? 4 : null);
+function renderRunbar() {
+  const bar = $('runbar');
+  bar.textContent = '';
+  const defs = [[4, `Run 4 · attack test · ${RECORDS.length} invoices`], [5, R5 ? `Run 5 · approvals · ${R5.invoices.length} invoices` : 'Run 5 · approvals']];
+  for (const [n, label] of defs) {
+    const b = h('button', 'btn', label);
+    b.type = 'button';
+    b.dataset.run = String(n);
+    b.setAttribute('aria-pressed', String(current === n));
+    b.addEventListener('click', () => { const hash = n === 5 ? '#run5' : '#run4'; if (location.hash !== hash) location.hash = hash; showRun(n); });
+    bar.append(b);
+  }
+  bar.hidden = false;
+}
+async function showRun(n) {
+  if (n === current && (n === 4 || ready5)) { renderRunbar(); return; }
+  if (n === 5 && !ready5) {
+    try {
+      await loadRun5();
+      renderSummary5(); renderInbox5(); renderFoot5();
+      r5s.rp = await initReplay();
+      renderPlay();
+      select5(R5.invoices.find((i) => i.approverSteps.length && storyOf(i).text.includes('approved'))?.id || R5.invoices[0].id);
+      ready5 = true;
+    } catch (e) {
+      $('load-status').hidden = false;
+      $('load-status').textContent = 'Run 5 could not start: ' + (e && e.message ? e.message : e);
+      throw e;
+    }
+  }
+  current = n;
+  $('app').hidden = n !== 4;
+  $('summary').hidden = n !== 4;
+  $('app5').hidden = n !== 5;
+  if (n === 5) $('load-status').hidden = true;
+  document.querySelector('.skip').setAttribute('href', n === 5 ? '#detail5' : '#detail');
+  renderRunbar();
+}
+window.addEventListener('hashchange', () => { const w = wantRun(); if (w && w !== current) showRun(w); });
+
 // ---------- boot ----------
 function boot() {
   renderSummary();
@@ -674,6 +1285,9 @@ function boot() {
   select(BY_ID.has('HLD-07') ? 'HLD-07' : RECORDS[0].id);
   const cur = document.querySelector('.row[aria-current="true"]');
   if (cur) $('inbox').scrollTop = Math.max(0, cur.offsetTop - $('inbox').clientHeight / 2 + cur.offsetHeight / 2);
+  renderRunbar();
+  loadRun5().then(renderRunbar, () => {});
+  if (wantRun() === 5) showRun(5);
 }
 try { boot(); } catch (e) {
   $('load-status').textContent = 'The desk could not start: ' + (e && e.message ? e.message : e);

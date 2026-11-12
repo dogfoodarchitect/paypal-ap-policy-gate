@@ -1,9 +1,9 @@
 {
   "bundle": "paypal-ap-policy-gate/gate",
   "schema": "kpf-export-manifest/1",
-  "stage": "Public repository, folder gate/: live code generation po-v4; our 25 and the held-out 13 attack invoices; the recorded Run 1, Run 2, Run 3 and Run 4 receipts; the 5-invoice recorded receipt; the archived po-v4, hold-v3 and patched-v2 code manifests; the Run 4 known-38 wrapper and second-blind set; verify.html, the AP desk (desk.html, desk.mjs, desk-data.mjs and the script that builds the data), a page that forwards the old playground address to the desk, and the two recount scripts. README.md, LICENSE and media/ sit one level up and are not listed here.",
-  "generatedBy": "b10g-assembly",
-  "generatedAtUTC": "2026-11-11T20:53:46.000Z",
+  "stage": "Public repository, folder gate/: live code generation po-v4; our 25 and the held-out 13 attack invoices; the recorded Run 1, Run 2, Run 3, Run 4 and Run 5 receipts; the Run 5 suite, runner, test file and summary; the 5-invoice recorded receipt; the archived po-v4, hold-v3 and patched-v2 code manifests; the Run 4 known-38 wrapper and second-blind set; verify.html, the AP desk (desk.html, desk.mjs, desk-data.mjs, desk-data-run5.mjs and the script that builds the data), a page that forwards the old playground address to the desk, and the three recount scripts. README.md, LICENSE and media/ sit one level up and are not listed here.",
+  "generatedBy": "b11-assembly",
+  "generatedAtUTC": "2026-11-12T01:35:26.000Z",
   "codeManifestSha256": "890bcaf206e325e0959738129cfd57295063991dcbef089fb0839a3afbb76417",
   "archivedCodeManifestSha256": {
     "patched-v2": "803beaea2e7bdbf5fb90bd576f9b5a43766808355d1e8ed520887599a6032084",
@@ -15,7 +15,8 @@
   "attackSuiteAfterFixReceiptSha256": "674dac071789763c4b80adeede077dc81a1e8bf8e1c9d4ef31e13f81b9c74c55",
   "attackSuiteRun3ReceiptSha256": "a05eee04c5bae3e04ef270e19d16c5150a636ba0d6ef9b7354421c309112491e",
   "attackSuiteRun4ReceiptSha256": "fa28cf7e7d5ef3df5f7609fa333fd43fc3b40f38ddc25b67866e0375fcdb9a01",
-  "fileCount": 50,
+  "approvalReleaseRun5ReceiptSha256": "f9825bda51bfc8077f51e7377bcf45179bef074fcd8dad41d21da87485051091",
+  "fileCount": 57,
   "files": {
     "CODE-MANIFEST.json": {
       "bytes": 5653,
@@ -121,13 +122,17 @@
       "bytes": 222758,
       "sha256": "33601d7146c695bd531bf0bc40f379ca8510093d1f8ca4aa75104f63c3e256c4"
     },
+    "desk-data-run5.mjs": {
+      "bytes": 46270,
+      "sha256": "3fe884fc41705e515cc184dfc2921c8ee67c80a09cd2b8e3dd209803c3719479"
+    },
     "desk.html": {
-      "bytes": 15322,
-      "sha256": "16e7cfa26e89985fe53bdf063baa5a8ecebf3287a5d076d35ab27770c436d1f8"
+      "bytes": 18769,
+      "sha256": "b6e12e14adee35158298d2efb1ab78b5f6817bc1dbf7347a4a1f4c972a06a56f"
     },
     "desk.mjs": {
-      "bytes": 36228,
-      "sha256": "368af7729ffe4c355309a04c98ed6afc9ba4574e332bdf558766f9c967ca03f6"
+      "bytes": 70610,
+      "sha256": "e65ddc8b63034afcdf7167e200bbd150a63600bfebec1ded5487600e82142225"
     },
     "hosted-demo-server.mjs": {
       "bytes": 138587,
@@ -142,8 +147,8 @@
       "sha256": "c450049a19615195cd04ab0ee6321833fbd40ae32ef9031df99e9f785da5a7c2"
     },
     "make-desk-data.mjs": {
-      "bytes": 13875,
-      "sha256": "33d2836e99aaca9f184b0170006789489f100a91331850488c2af2863862dc18"
+      "bytes": 21431,
+      "sha256": "f4d9e42ea2e787fdca49ec1b625969bc47b0a16ddd4c79d9ccb5685908e481df"
     },
     "make-playground-data.mjs": {
       "bytes": 6695,
@@ -216,6 +221,30 @@
     "recount-run4.mjs": {
       "bytes": 13882,
       "sha256": "4d26e39cb011c4a8e6deb5baca8531b329aacdf1667a8974518262ea4e60bad1"
+    },
+    "run-approval-release.mjs": {
+      "bytes": 19249,
+      "sha256": "2a1f42ab0723fc5c99110a73856afaffd237def80a4681e83f212704c95a7ae7"
+    },
+    "approval-release-suite.json": {
+      "bytes": 27473,
+      "sha256": "0d16145d4cdeb7df3f0d8ed937188c64920ac4498ec8375f111db6607e871573"
+    },
+    "approval-release.test.mjs": {
+      "bytes": 9593,
+      "sha256": "380d87cdb6f33b6de8d67b41c900ef3fad06094ff925fa13ea9f5571ee12a9b4"
+    },
+    "approval-release-run5-receipt.json": {
+      "bytes": 119449,
+      "sha256": "f9825bda51bfc8077f51e7377bcf45179bef074fcd8dad41d21da87485051091"
+    },
+    "recount-run5.mjs": {
+      "bytes": 12737,
+      "sha256": "b9b1d473596513f3eb4626d6f771a2940930ba53a8499ded88bf4822aa122af1"
+    },
+    "RUN5-SUMMARY.md": {
+      "bytes": 4026,
+      "sha256": "e82c938186d057d0023e36c1a7f291ec25579a92f56db10250e04bb0c9d80d54"
     }
   }
 }

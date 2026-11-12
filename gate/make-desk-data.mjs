@@ -15,6 +15,11 @@
  *                                        PayPal ids, the call log and the signed ledger
  * No gate logic is copied here. Every number on the page is counted from this data in the browser.
  *
+ * Run 5 (the approval view) is written to a second file, desk-data-run5.mjs (option --out5), from:
+ *   approval-release-run5-receipt.json   Run 5: the signed receipt (23 ledger entries, 13 PayPal calls, approver steps)
+ *   approval-release-suite.json          the 6 invoices, the 8 passes and the scripted approver steps
+ * Nothing in the Run 5 file is typed by hand: texts, ids, times, hashes and decisions are copied from those two files.
+ *
  * Marked instruction lines are derived, never typed. A line is marked when it is tied to the record's own data:
  *   note      it repeats at least three words in a row of the note attached to the invoice
  *   new       it names an email address, an amount or a merchant id that the rest of the invoice does not
@@ -34,6 +39,7 @@ const opt = (name, dflt) => { const i = args.indexOf(name); return i >= 0 && arg
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const dir = path.resolve(opt('--dir', HERE));
 const outFile = path.resolve(opt('--out', path.join(dir, 'desk-data.mjs')));
+const outFile5 = path.resolve(opt('--out5', path.join(dir, 'desk-data-run5.mjs')));
 
 const sha = (buf) => crypto.createHash('sha256').update(buf).digest('hex');
 const readSrc = (name) => {
@@ -270,3 +276,143 @@ fs.writeFileSync(outFile, text);
 const st = {};
 for (const x of records) st[x.markState] = (st[x.markState] || 0) + 1;
 console.log(`wrote ${outFile} records=${records.length} marks=${JSON.stringify(st)} bytes=${Buffer.byteLength(text)}`);
+
+// =====================================================================================================
+// Run 5: approval and release. Everything below is copied from the Run 5 receipt and its suite file.
+// =====================================================================================================
+const r5Receipt = readSrc('approval-release-run5-receipt.json');
+const r5Suite = readSrc('approval-release-suite.json');
+const R5 = JSON.parse(r5Receipt.text);
+const S5 = JSON.parse(r5Suite.text);
+if (R5.attackSuiteSha256 !== r5Suite.sha256) throw new Error('Run 5 receipt was not made from this suite file (sha256 differs)');
+if (R5.chainVerification.valid !== true) throw new Error('Run 5 receipt chain is not valid');
+const suiteById5 = new Map(S5.records.map((r) => [r.suiteId, r]));
+const entriesByProposal5 = new Map();
+const proposed5 = new Map();
+for (const e of R5.ledger.entries) {
+  if (!e.proposalId) continue;
+  if (!entriesByProposal5.has(e.proposalId)) entriesByProposal5.set(e.proposalId, []);
+  entriesByProposal5.get(e.proposalId).push(e);
+  if (e.stage === 'PROPOSED') proposed5.set(e.proposalId, e);
+}
+// PayPal calls belong to passes in run order (the first pass also carries the OAuth token call).
+const calls5 = new Map();
+{
+  let cur = 0;
+  for (const s of R5.suiteRecords) {
+    const calls = R5.apiCallLog.slice(cur, cur + s.apiCallsDelta);
+    cur += s.apiCallsDelta;
+    for (const c of calls) {
+      if (c.idempotencyKey && !c.idempotencyKey.includes(s.modelProposal.proposalId)) throw new Error(`Run 5 call ${c.seq} does not belong to ${s.suiteId}`);
+    }
+    calls5.set(s.suiteId, calls);
+  }
+  if (cur !== R5.apiCallLog.length) throw new Error('Run 5 API call log not fully assigned');
+}
+const ledgerRow5 = (e) => ({ index: e.index, stage: e.stage, proposalId: e.proposalId, actor: e.actor, recordedAt: e.recordedAt, hash: e.receiptHash, prev: e.prevHash });
+const passes5 = R5.suiteRecords.map((run) => {
+  const sr = suiteById5.get(run.suiteId);
+  const proposalId = run.modelProposal.proposalId;
+  const prop = proposed5.get(proposalId);
+  const gateProposal = { ...prop.payload, proposalId };
+  delete gateProposal.aiModelRoute;
+  const executed = (entriesByProposal5.get(proposalId) || []).find((e) => e.stage === 'EXECUTED');
+  return {
+    suiteId: run.suiteId,
+    step: run.step,
+    kind: sr.kind,
+    technique: sr.technique,
+    attackerWants: sr.whatTheAttackerWants,
+    reusesProposalOf: sr.reusesProposalOf ?? null,
+    modelCallMade: run.modelCallMade,
+    proposalId,
+    gateProposal,
+    recorded: {
+      decision: run.gateDecision,
+      outcome: run.outcome,
+      reasonCode: run.reasonCode,
+      reasonDetail: run.reasonDetail ?? null,
+      apiCalls: Number(run.apiCallsDelta ?? 0),
+      paypalOrderId: run.paypalOrderId ?? null,
+      paypalCaptureId: run.paypalCaptureId ?? null,
+      orderStatus: executed?.payload?.orderStatus ?? null,
+      captureStatus: executed?.payload?.captureStatus ?? null,
+      calls: (calls5.get(run.suiteId) || []).map((c) => ({ seq: c.seq, surface: c.surface, method: c.method, path: c.path, status: c.status, debugId: c.paypalDebugId })),
+    },
+    ledger: (entriesByProposal5.get(proposalId) || []).map(ledgerRow5),
+  };
+});
+const passById5 = new Map(passes5.map((p) => [p.suiteId, p]));
+// An invoice is a pass that made its own model call. Later passes that reuse its proposal belong to it.
+const invoices5 = passes5.filter((p) => !p.reusesProposalOf).map((p) => {
+  const sr = suiteById5.get(p.suiteId);
+  const own = passes5.filter((q) => q.suiteId === p.suiteId || q.reusesProposalOf === p.suiteId);
+  const ownProposalIds = new Set(own.map((q) => q.proposalId));
+  const approverSteps = R5.approverSteps.filter((a) => a.target === p.suiteId);
+  // Entries of this invoice: every entry of its passes, plus the approver entries that name its first proposal id.
+  const entries = R5.ledger.entries.filter((e) => e.proposalId && ownProposalIds.has(e.proposalId)).map(ledgerRow5);
+  const rawKeys = (() => { try { return Object.keys(JSON.parse(proposed5.get(p.proposalId).payload.aiModelRoute?.rawCompletion || '{}')); } catch { return []; } })();
+  return {
+    id: p.suiteId,
+    kind: sr.kind,
+    technique: sr.technique,
+    attackerWants: sr.whatTheAttackerWants,
+    invoiceText: sr.invoice.invoiceDocument || '',
+    invoiceMemo: sr.invoice.invoiceMemo ?? null,
+    evalTimestamp: S5.fixedEvaluationTimestamp,
+    setup: (sr.setup || []).map(pick),
+    gateProposal: p.gateProposal,
+    modelWrotePo: rawKeys.includes('poNumber'),
+    passIds: own.map((q) => q.suiteId),
+    approverSteps,
+    ledger: entries,
+  };
+});
+// The replay script: leading proposals, then the held ones with their recorded approver action and the passes
+// that follow it, then the rest of the day. Derived from the suite file's own step list.
+const steps5 = S5.steps;
+let iOpen = 0;
+while (iOpen < steps5.length && steps5[iOpen].do === 'propose') iOpen += 1;
+let iDecideEnd = iOpen;
+while (iDecideEnd < steps5.length && steps5[iDecideEnd].do !== 'propose') iDecideEnd += 1;
+const decide5 = steps5.slice(iOpen, iDecideEnd).filter((s) => s.do === 'approve' || s.do === 'reject').map((s) => ({
+  target: s.target,
+  action: s.do,
+  releases: steps5.slice(iOpen, iDecideEnd).filter((r) => r.do === 'release' && r.target === s.target).map((r) => ({ record: r.record, newProposalId: r.newProposalId ?? null })),
+}));
+const restSteps = steps5.slice(iDecideEnd);
+const data5 = {
+  generatedBy: 'make-desk-data.mjs',
+  run: {
+    label: 'Run 5',
+    receipt: r5Receipt.name,
+    receiptBytes: r5Receipt.bytes,
+    receiptSha256: r5Receipt.sha256,
+    gateGeneration: R5.gateGeneration,
+    policyId: R5.policySnapshot?.policyId ?? null,
+    sandbox: R5.sandboxBaseUrl,
+    model: R5.llmProposerSummary?.returnedModel ?? null,
+    generatedAt: R5.generatedAt,
+    fixedEvaluationTimestamp: R5.fixedEvaluationTimestamp,
+    chainValid: R5.chainVerification.valid,
+    chainCount: R5.chainVerification.count,
+    chainSignatures: R5.chainVerification.verifiedEd25519Signatures,
+    stageCounts: R5.chainVerification.stageCounts,
+    headHash: R5.chainVerification.headHash,
+    keySha256: R5.chainVerification.gatePublicKeySha256,
+    liveHttpsCalls: R5.apiCallLog.length,
+    modelCalls: R5.summary.modelCalls,
+    passes: R5.suiteRecords.length,
+  },
+  approver: R5.approver,
+  approverSteps: R5.approverSteps,
+  suiteApproverNote: S5.approver?.note ?? null,
+  sources: [r5Suite, r5Receipt, gateSrc, po].map(({ name, bytes, sha256 }) => ({ file: name, bytes, sha256 })),
+  invoices: invoices5,
+  passes: passes5,
+  script: { open: steps5.slice(0, iOpen), decide: decide5, rest: restSteps },
+};
+const text5 = '// Generated by make-desk-data.mjs from the files listed in `sources`. Do not edit by hand.\n' +
+  'export const RUN5_DATA = ' + JSON.stringify(data5, null, 1) + ';\n';
+fs.writeFileSync(outFile5, text5);
+console.log(`wrote ${outFile5} invoices=${invoices5.length} passes=${passes5.length} bytes=${Buffer.byteLength(text5)}`);
