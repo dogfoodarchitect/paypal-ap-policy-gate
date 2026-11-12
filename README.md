@@ -419,7 +419,7 @@ All files below are in `gate/`. `CODE-MANIFEST.json` is the live code pin and fr
 | `invoice-reader.mjs` (field reader, no model) | 1,839 | `9dedbb95a81fe70adfe2ed1e04b3d5a8f5ce9434fadb0837f57f06983ac4f063` |
 | `desk-live.test.mjs` (local desk tests) | 12,992 | `8000b44b5570e586556cb0d7b11fd91609248d61c94caf7f02a5ed86d7ff48ad` |
 | `desk-live-session-receipt.json` (desk session, 23 entries) | 121,393 | `51f88f1086518e6ee2a483d4aab339a2edd5572d1d2930cd2dd6dc795254ece8` |
-| `DESK-LIVE-SUMMARY.md` | 2,065 | `e7ab7d241a43acf51a4872d36a21c54a1da1cb718825f10e96290cba6c8ca3b1` |
+| `DESK-LIVE-SUMMARY.md` | 3,224 | `7e41c32efe0e00bd58d8400b8e9fd705da4dbc102a5e1f706ec657045e99490d` |
 | `desk-data-run5.mjs` (Run 5 desk data) | 46,270 | `3fe884fc41705e515cc184dfc2921c8ee67c80a09cd2b8e3dd209803c3719479` |
 | `approval-release.test.mjs` (Run 5 tests) | 9,593 | `380d87cdb6f33b6de8d67b41c900ef3fad06094ff925fa13ea9f5571ee12a9b4` |
 | `RUN5-SUMMARY.md` | 4,026 | `e82c938186d057d0023e36c1a7f291ec25579a92f56db10250e04bb0c9d80d54` |
