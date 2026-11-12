@@ -1,9 +1,9 @@
 {
   "bundle": "paypal-ap-policy-gate/gate",
   "schema": "kpf-export-manifest/1",
-  "stage": "Public repository, folder gate/: live code generation po-v4; our 25 and the held-out 13 attack invoices; the recorded Run 1, Run 2, Run 3, Run 4 and Run 5 receipts; the Run 5 suite, runner, test file and summary; the 5-invoice recorded receipt; the archived po-v4, hold-v3 and patched-v2 code manifests; the Run 4 known-38 wrapper and second-blind set; verify.html, the AP desk (desk.html, desk.mjs, desk-data.mjs, desk-data-run5.mjs and the script that builds the data), a page that forwards the old playground address to the desk, and the three recount scripts. README.md, LICENSE and media/ sit one level up and are not listed here. Round B.12 adds the local desk server (desk-server.mjs, desk-live.mjs), the field reader used by the hosted Try tab (invoice-reader.mjs), their tests, and one scripted live desk session: its signed receipt, the signed ledger of its pasted invoice, and a summary.",
+  "stage": "Public repository, folder gate/: live code generation po-v4; our 25 and the held-out 13 attack invoices; the recorded Run 1, Run 2, Run 3, Run 4 and Run 5 receipts; the Run 5 suite, runner, test file and summary; the 5-invoice recorded receipt; the archived po-v4, hold-v3 and patched-v2 code manifests; the Run 4 known-38 wrapper and second-blind set; verify.html, the AP desk (desk.html, desk.mjs, desk-data.mjs, desk-data-run5.mjs and the script that builds the data), a page that forwards the old playground address to the desk, and the three recount scripts. README.md, LICENSE and media/ sit one level up and are not listed here. Round B.12 adds the local desk server (desk-server.mjs, desk-live.mjs), the field reader used by the hosted Try tab (invoice-reader.mjs), their tests, and one scripted live desk session: its signed receipt, the signed ledger of its pasted invoice, and a summary. It also holds the receipts and pasted-invoice ledgers of two further scripted sessions recorded for the demo video.",
   "generatedBy": "b12-assembly",
-  "generatedAtUTC": "2026-11-12T03:41:32.000Z",
+  "generatedAtUTC": "2026-11-12T03:51:10.000Z",
   "codeManifestSha256": "890bcaf206e325e0959738129cfd57295063991dcbef089fb0839a3afbb76417",
   "archivedCodeManifestSha256": {
     "patched-v2": "803beaea2e7bdbf5fb90bd576f9b5a43766808355d1e8ed520887599a6032084",
@@ -16,15 +16,15 @@
   "attackSuiteRun3ReceiptSha256": "a05eee04c5bae3e04ef270e19d16c5150a636ba0d6ef9b7354421c309112491e",
   "attackSuiteRun4ReceiptSha256": "fa28cf7e7d5ef3df5f7609fa333fd43fc3b40f38ddc25b67866e0375fcdb9a01",
   "approvalReleaseRun5ReceiptSha256": "f9825bda51bfc8077f51e7377bcf45179bef074fcd8dad41d21da87485051091",
-  "fileCount": 64,
+  "fileCount": 68,
   "files": {
     "CODE-MANIFEST.json": {
       "bytes": 5653,
       "sha256": "890bcaf206e325e0959738129cfd57295063991dcbef089fb0839a3afbb76417"
     },
     "DESK-LIVE-SUMMARY.md": {
-      "bytes": 2065,
-      "sha256": "e7ab7d241a43acf51a4872d36a21c54a1da1cb718825f10e96290cba6c8ca3b1"
+      "bytes": 3224,
+      "sha256": "7e41c32efe0e00bd58d8400b8e9fd705da4dbc102a5e1f706ec657045e99490d"
     },
     "LICENSE": {
       "bytes": 1281,
@@ -273,6 +273,22 @@
     "desk-live-session-pasted-ledger.json": {
       "bytes": 11584,
       "sha256": "532e867b9ca8a2e9aae3db626b4c5ab0b7f6e6f842a16480d8f25fd5a7f610d3"
+    },
+    "desk-live-session-2-pasted-ledger.json": {
+      "bytes": 11585,
+      "sha256": "5fc95b2cd1f822dc1458325b053ada0f5e38b574cb65d21c0ccc696a74d9d5b0"
+    },
+    "desk-live-session-2-receipt.json": {
+      "bytes": 121429,
+      "sha256": "39d957f680ca00eafde53bb407034566b1d01e0a97507f39a3d9887a7f4efbd7"
+    },
+    "desk-live-session-3-pasted-ledger.json": {
+      "bytes": 11585,
+      "sha256": "d5c681b19d4494b37a2b2b6f54d7f65443c06959377fdac644edb01209d3a3f2"
+    },
+    "desk-live-session-3-receipt.json": {
+      "bytes": 121429,
+      "sha256": "a4dcfb3e6b64cd336f7d4d6134d15c1d898b8e68cf11dd3505cac47a457fec68"
     }
   }
 }

@@ -48,6 +48,8 @@ node recount-run5.mjs desk-live-session-receipt.json
 
 The first prints `VERDICT: PASS` (23 of 23 entries). The second ends `RECOUNT: AGREES` (31 of 31 checks).
 
+Two more scripted sessions were recorded the same day for the demo video. The video shows the last one. Their receipts are `gate/desk-live-session-2-receipt.json` and `gate/desk-live-session-3-receipt.json`, each with its pasted-invoice ledger beside it, and both pass the same two checks. The first session's pasted-invoice ledger is `gate/desk-live-session-pasted-ledger.json`.
+
 **On the hosted desk** the "Try your own invoice" tab runs the same gate in your browser. It has no model. A simple field reader stands in, and it reads only the layout of the suite's invoices. Nothing is paid.
 
 ## How the counts connect
